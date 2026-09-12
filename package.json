@@ -1,11 +1,12 @@
 {
   "name": "kumowatashi",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
-    "dev": "vp run website#dev",
+    "dev-b": "vp run backend#dev",
+    "dev-f": "vp run frontend#dev",
     "prepare": "vp config"
   },
   "devDependencies": {

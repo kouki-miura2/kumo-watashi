@@ -17,6 +17,12 @@ dist-ssr
 .env.*
 !.env.example
 
+# Wrangler (Cloudflare Workers)
+.wrangler
+.dev.vars
+.dev.vars.*
+worker-configuration.d.ts
+
 # Editor directories and files
 .vscode/*
 !.vscode/settings.json
