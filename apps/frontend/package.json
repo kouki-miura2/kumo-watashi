@@ -9,7 +9,7 @@
     "preview": "vp preview"
   },
   "devDependencies": {
-    "typescript": "^7.0.2",
+    "typescript": "^6.0.3",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   }
