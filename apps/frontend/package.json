@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
+    "check": "vp check",
     "build": "vue-tsc && vp build",
     "preview": "vp preview"
   },

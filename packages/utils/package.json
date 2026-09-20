@@ -8,8 +8,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "test": "vp test",
-    "check": "vp check"
+    "check": "vp check",
+    "test": "vp test"
   },
   "devDependencies": {
     "@types/node": "catalog:",

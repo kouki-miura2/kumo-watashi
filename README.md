@@ -24,6 +24,12 @@ vp run -r build
 
 ## packages/utils
 
+- Run format/lint/type checks:
+
+```bash
+vp run utils#check
+```
+
 - Run the tests:
 
 ```bash
@@ -44,6 +50,12 @@ vp run backend#dev
 vp run backend#dev:node
 ```
 
+- Run format/lint/type checks:
+
+```bash
+vp run backend#check
+```
+
 - Run the tests:
 
 ```bash
@@ -62,6 +74,12 @@ vp run backend#build
 
 ```bash
 vp run frontend#dev
+```
+
+- Run format/lint/type checks:
+
+```bash
+vp run frontend#check
 ```
 
 - Build:
