@@ -10,20 +10,48 @@ A starter for creating a Vite+ monorepo.
 vp run ready
 ```
 
-- Run the tests:
+- Run all tests:
 
 ```bash
 vp run -r test
 ```
 
-- Build the monorepo:
+- Build everything:
 
 ```bash
 vp run -r build
 ```
 
-- Run the development server:
+## packages/utils
+
+- Run the tests:
 
 ```bash
-vp run dev
+vp run utils#test
+```
+
+## apps/backend
+
+- Debug locally on the Cloudflare Workers runtime:
+
+```bash
+vp run backend#dev
+```
+
+- Debug locally on the Node.js runtime:
+
+```bash
+vp run backend#dev:node
+```
+
+- Run the tests:
+
+```bash
+vp run backend#test
+```
+
+- Build (Workers dry-run bundle + Node bundle):
+
+```bash
+vp run backend#build
 ```

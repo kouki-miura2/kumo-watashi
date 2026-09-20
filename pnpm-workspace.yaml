@@ -20,3 +20,5 @@ peerDependencyRules:
 allowBuilds:
   esbuild: true
   workerd: true
+minimumReleaseAgeExclude:
+  - tsx@4.23.14
