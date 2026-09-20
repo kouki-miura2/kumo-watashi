@@ -1,11 +1,40 @@
 # AGENTS.md
 
-## Rules
+## Project Structure
 
-- Monorepo
-- Co-location e.g. foo/bar.ts, foo/bar.test.ts
-- `apps/backend` is a Cloudflare Workers app (Hono only). Use `wrangler dev` / `wrangler deploy`, not Node.
-- Secrets via `wrangler secret put`, never `.env` / commit `.dev.vars`.
+Monorepo managed with pnpm workspaces (`apps/*`, `packages/*`).
+
+- `apps/backend` — API server (Hono, deployable to Cloudflare Workers or as a standalone Node.js server)
+- `apps/frontend` — Web client (Vue 3 + Vuetify 4)
+- `packages/utils` — Shared runtime utilities (date/time helpers, logger)
+
+## Conventions
+
+- Co-location: `foo/bar.ts` + `foo/bar.test.ts`.
+- Arrow functions everywhere (`const foo = (...) => {}`), no `function` declarations — one style repo-wide, including `packages/utils`, so there's no per-case judgment call.
+- Favor less code: reach for a framework's built-in feature over a hand-rolled one, avoid speculative abstractions and shared packages "just in case", and don't introduce a layer until it earns its keep.
+- API request/response types are not hand-shared: `apps/frontend` gets them from `apps/backend` via Hono RPC (see below), not from a separate types package.
+- Runtime-agnostic shared code goes in `packages/utils`, not duplicated per app.
+
+## apps/backend
+
+- Hono, kept runtime-agnostic so the same app runs on Cloudflare Workers or a plain Node.js server — this lets on-premise / self-hosted projects start from the same codebase. Routes/middleware live in `src/app.ts` with no runtime-specific APIs; `src/worker.ts` is the Cloudflare Workers entrypoint (`wrangler dev` / `wrangler deploy`) and `src/server.ts` is the Node.js entrypoint (`@hono/node-server`, run with `node`). Pick and deploy only the entrypoint(s) a given project needs.
+- Secrets: on Cloudflare Workers use `wrangler secret put`, never `.env` / commit `.dev.vars`. On Node.js use standard environment variables (`.env`, untracked) instead.
+- Data access follows the Repository pattern: request handlers depend only on repository interfaces, never directly on a datastore client (D1, KV, a Node DB driver, external API, etc.). Interfaces live under `src/repositories/*.interface.ts`; concrete DAO implementations live alongside them (e.g. `*.d1.ts`, `*.node-pg.ts`, `*.mock.ts`) and are wired up once per entrypoint, so the Workers and Node builds can use different DAOs behind the same interface. Each project adds its own DAOs behind these interfaces without touching handler code.
+- `src/app.ts` exports the Hono app instance's type (`AppType`) for Hono RPC. This is the API contract — no hand-written request/response types.
+
+## apps/frontend
+
+- Vue 3 (Composition API, `<script setup>`).
+- Vuetify 4 for UI components and theming.
+- vue-router for routing (`src/router`).
+- Pinia for state management, one store per domain (`src/stores`).
+- API access goes through a Hono RPC client (`hc<AppType>()`), built from a type-only import of `apps/backend`'s `AppType`. This gives full request/response type inference without a shared types package or manually written DTOs.
+
+## packages/utils
+
+- Date/time helpers: shared date manipulation/formatting/parsing functions.
+- Logger: a thin wrapper over `console.*` (log levels, prefixing, env-aware). Application code calls the logger, never `console.log` directly.
 
 <!--VITE PLUS START-->
 

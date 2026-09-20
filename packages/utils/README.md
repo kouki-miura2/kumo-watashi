@@ -1,14 +1,11 @@
-# vite-plus-starter
+# utils
 
-A starter for creating a Vite Plus project.
+Shared runtime utilities used by `apps/backend` and `apps/frontend`.
+
+- `date` — date formatting (`formatDate`) and calculation (`addDays`, `addMonths`, `addYears`, `startOfDay`, `endOfDay`, `isSameDay`, `diffInDays`) helpers, built on the native `Date` API only.
+- `logger` — `createLogger()`, a thin wrapper over `console.*` with level filtering and an optional prefix.
 
 ## Development
-
-- Install dependencies:
-
-```bash
-vp install
-```
 
 - Run the unit tests:
 
@@ -16,7 +13,7 @@ vp install
 vp test
 ```
 
-- Build the library:
+- Build the package:
 
 ```bash
 vp pack
