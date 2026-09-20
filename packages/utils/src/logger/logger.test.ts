@@ -39,4 +39,31 @@ describe('createLogger', () => {
 
     expect(info).toHaveBeenCalledWith('[api]', 'started', { port: 3000 })
   })
+
+  test('writes a single JSON line per call when format is "json"', () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+
+    const logger = createLogger({ format: 'json', prefix: 'api' })
+    logger.info('request', { method: 'GET', path: '/' })
+
+    expect(info).toHaveBeenCalledTimes(1)
+    const [line] = info.mock.calls[0] as [string]
+    expect(JSON.parse(line)).toMatchObject({
+      level: 'info',
+      prefix: 'api',
+      message: 'request',
+      method: 'GET',
+      path: '/',
+    })
+  })
+
+  test('json format omits the prefix field when none is configured', () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+
+    const logger = createLogger({ format: 'json' })
+    logger.info('request')
+
+    const [line] = info.mock.calls[0] as [string]
+    expect(JSON.parse(line)).not.toHaveProperty('prefix')
+  })
 })

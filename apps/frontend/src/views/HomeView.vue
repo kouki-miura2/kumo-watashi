@@ -1,26 +1,30 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 
-import { useStatusStore } from '../stores/status.ts'
+import { useSampleStore } from '../stores/sample.ts'
 
-const statusStore = useStatusStore()
+const sampleStore = useSampleStore()
 
 onMounted(() => {
-  statusStore.fetchStatus()
+  sampleStore.fetchSample('1')
 })
 </script>
 
 <template>
   <v-container class="py-8">
     <v-card max-width="480" class="mx-auto">
-      <v-card-title>Backend status</v-card-title>
+      <v-card-title>Sample response</v-card-title>
       <v-card-text>
-        <p v-if="statusStore.loading">Loading...</p>
-        <p v-else-if="statusStore.error">Error: {{ statusStore.error }}</p>
-        <p v-else>{{ statusStore.status ?? 'unknown' }}</p>
+        <p v-if="sampleStore.loading">Loading...</p>
+        <p v-else-if="sampleStore.error">Error: {{ sampleStore.error }}</p>
+        <p v-else>{{ sampleStore.message ?? 'unknown' }}</p>
       </v-card-text>
       <v-card-actions>
-        <v-btn text="Refresh" :loading="statusStore.loading" @click="statusStore.fetchStatus()" />
+        <v-btn
+          text="Refresh"
+          :loading="sampleStore.loading"
+          @click="sampleStore.fetchSample('1')"
+        />
       </v-card-actions>
     </v-card>
   </v-container>

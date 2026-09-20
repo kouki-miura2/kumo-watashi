@@ -38,17 +38,11 @@ vp run utils#test
 
 ## apps/backend
 
-- Debug locally on the Cloudflare Workers runtime:
+Deployable to Cloudflare Workers or as a standalone Node.js server. Pick the runtime section(s) a given project needs.
 
-```bash
-vp run backend#dev
-```
+Script naming: no suffix = common (runtime-agnostic) or Cloudflare Workers, `:node` suffix = Node.js.
 
-- Debug locally on the Node.js runtime:
-
-```bash
-vp run backend#dev:node
-```
+### Common
 
 - Run format/lint/type checks:
 
@@ -62,10 +56,50 @@ vp run backend#check
 vp run backend#test
 ```
 
-- Build (Workers dry-run bundle + Node bundle):
+### Cloudflare Workers
+
+- Debug locally:
+
+```bash
+vp run backend#dev
+```
+
+- Build (dry-run bundle):
 
 ```bash
 vp run backend#build
+```
+
+- Deploy:
+
+```bash
+vp run backend#deploy
+```
+
+- Regenerate Workers binding types:
+
+```bash
+vp run backend#cf-typegen
+```
+
+### Node.js
+
+- Debug locally (hot reload):
+
+```bash
+vp run backend#dev:node
+```
+
+- Build:
+
+```bash
+vp run backend#build:node
+```
+
+- Run the built bundle:
+
+```bash
+vp run backend#start:node
 ```
 
 ## apps/frontend
