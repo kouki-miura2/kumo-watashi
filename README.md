@@ -55,3 +55,23 @@ vp run backend#test
 ```bash
 vp run backend#build
 ```
+
+## apps/frontend
+
+- Run the dev server:
+
+```bash
+vp run frontend#dev
+```
+
+- Build:
+
+```bash
+vp run frontend#build
+```
+
+- Preview the production build:
+
+```bash
+vp run frontend#preview
+```

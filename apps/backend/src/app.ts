@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { createLogger } from "utils";
 import type { StatusRepository } from "./repositories/status.interface.ts";
 
@@ -11,6 +12,7 @@ export const createApp = (deps: AppDependencies) => {
   const logger = createLogger({ prefix: "backend" });
 
   return new Hono()
+    .use("*", cors())
     .use("*", async (c, next) => {
       logger.info(c.req.method, c.req.path);
       await next();
