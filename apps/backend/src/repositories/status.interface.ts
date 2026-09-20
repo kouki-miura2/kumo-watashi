@@ -1,3 +1,3 @@
 export interface StatusRepository {
-  getStatus: () => Promise<{ status: string }>;
+  getStatus: () => Promise<{ status: string }>
 }

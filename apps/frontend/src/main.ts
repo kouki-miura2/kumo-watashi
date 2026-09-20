@@ -1,7 +1,8 @@
-import { createPinia } from "pinia";
-import { createApp } from "vue";
-import App from "./App.vue";
-import { router } from "./router/index.ts";
-import { vuetify } from "./plugins/vuetify.ts";
+import { createPinia } from 'pinia'
+import { createApp } from 'vue'
 
-createApp(App).use(createPinia()).use(router).use(vuetify).mount("#app");
+import App from './App.vue'
+import { vuetify } from './plugins/vuetify.ts'
+import { router } from './router/index.ts'
+
+createApp(App).use(createPinia()).use(router).use(vuetify).mount('#app')

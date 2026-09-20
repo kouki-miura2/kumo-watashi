@@ -1,4 +1,4 @@
-import { defineConfig } from "vite-plus";
+import { defineConfig } from 'vite-plus'
 
 export default defineConfig({
   lint: {
@@ -8,4 +8,4 @@ export default defineConfig({
     },
   },
   fmt: {},
-});
+})

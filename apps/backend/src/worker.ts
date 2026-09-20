@@ -1,4 +1,4 @@
-import { createApp } from "./app.ts";
-import { createStatusRepository } from "./repositories/status.memory.ts";
+import { createApp } from './app.ts'
+import { createStatusRepository } from './repositories/status.memory.ts'
 
-export default createApp({ statusRepository: createStatusRepository() });
+export default createApp({ statusRepository: createStatusRepository() })

@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
-import { useStatusStore } from "../stores/status.ts";
+import { onMounted } from 'vue'
 
-const statusStore = useStatusStore();
+import { useStatusStore } from '../stores/status.ts'
+
+const statusStore = useStatusStore()
 
 onMounted(() => {
-  statusStore.fetchStatus();
-});
+  statusStore.fetchStatus()
+})
 </script>
 
 <template>
@@ -16,7 +17,7 @@ onMounted(() => {
       <v-card-text>
         <p v-if="statusStore.loading">Loading...</p>
         <p v-else-if="statusStore.error">Error: {{ statusStore.error }}</p>
-        <p v-else>{{ statusStore.status ?? "unknown" }}</p>
+        <p v-else>{{ statusStore.status ?? 'unknown' }}</p>
       </v-card-text>
       <v-card-actions>
         <v-btn text="Refresh" :loading="statusStore.loading" @click="statusStore.fetchStatus()" />
