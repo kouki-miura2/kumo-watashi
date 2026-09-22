@@ -1,10 +1,14 @@
-# Vite+ Monorepo Starter
+# KUMO-WATASHI
 
-A starter for creating a Vite+ monorepo, with `apps/backend`, `apps/frontend`, and
-`packages/utils`. `apps/backend` is a Hono API (deployable to Cloudflare Workers or as a
-standalone Node.js server), `apps/frontend` is a Vue 3 + Vuetify 4 client that talks to it through
-Hono RPC (typed request/response, no hand-shared types package), and `packages/utils` holds
-runtime-agnostic code shared by both.
+スマートフォンやPC間でファイルを一時的に転送するWebアプリケーション。ファイルは永続保存せず、
+Transfer Sessionを作成して短時間(既定3分)だけクラウド上に保持する。QRコードまたはワンタイムコードで
+Uploader(送信側)からDownloader(受信側)へ一方向にファイルを転送する。詳細な仕様は
+[docs/spec.md](docs/spec.md) を参照。
+
+Vite+モノレポ構成で、`apps/backend`, `apps/frontend`, `packages/utils` からなる。`apps/backend` は
+Hono API(Cloudflare Workersへのデプロイ、またはNode.jsサーバーとして単体でも動作)、`apps/frontend`
+はVue 3 + Vuetify 4のクライアントで、Hono RPC(型付きリクエスト/レスポンス、手動での型共有パッケージ不要)
+を通じてbackendと通信する。`packages/utils` は両者で共有するランタイム非依存のコードを保持する。
 
 ## Development
 
