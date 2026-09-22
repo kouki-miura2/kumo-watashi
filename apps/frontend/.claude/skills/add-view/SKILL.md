@@ -12,10 +12,13 @@ table entry.
 
 Worked references:
 
-- `src/views/SampleView.vue` — a view with no server data, using a Pinia store directly.
-- `src/views/HomeView.vue` + `src/composables/useSampleQuery.ts` — a view backed by server data
-  via TanStack Query, reacting to a query error through a Pinia store.
 - `src/router/routes.ts` / `src/router/routes.test.ts` — the route table and its test.
+- `src/views/UploaderView.vue` — a view driven by local component state plus the `notification`
+  Pinia store directly (see `src/stores/notification.ts`); no view calls the API yet, so there's
+  no TanStack Query composable to reference — follow step 2 below when the first one is needed.
+
+`src/views/HomeView.vue` and `src/views/UploaderView.vue` are the app's real screens (not
+scaffolding references) — see `docs/spec.md` section 2.4 for what the top page needs to show.
 
 ## Procedure
 
@@ -36,11 +39,10 @@ A view can need none, either, or both of the first two.
 
 - `src/composables/use<Name>Query.ts` — wraps `useQuery` (or `useMutation`), calling the Hono RPC
   `apiClient` from `src/api/client.ts`. Accept an optional `queryClient` param, passed through to
-  `useQuery` as the second argument, purely so tests can run it outside a mounted app (see
-  `useSampleQuery.ts`).
+  `useQuery` as the second argument, purely so tests can run it outside a mounted app.
 - `src/composables/use<Name>Query.test.ts` — co-located test: `vi.mock('../api/client.ts', ...)`,
   run the composable inside `effectScope().run(...)` with an explicit throwaway `QueryClient`
-  (`retry: false`), and await state with `vi.waitFor(...)` (see `useSampleQuery.test.ts`).
+  (`retry: false`), and await state with `vi.waitFor(...)`.
 
 ### 3. Create the view
 
@@ -56,14 +58,16 @@ A view can need none, either, or both of the first two.
   to `src/router/routes.ts`. Keep the component import lazy (arrow function), matching the
   existing entries.
 - Extend `src/router/routes.test.ts` with a case resolving the new path to the new route name
-  (see the existing `resolves the sample route` test). Use `router.resolve(...)`, not
+  (see the existing `resolves the uploader route` test). Use `router.resolve(...)`, not
   `router.push(...)` — `push` actually loads the lazy component, which drags in Vuetify's CSS and
   breaks under Node's module loader.
 
 ### 5. Link it from navigation (if the view should be reachable from the UI)
 
-- Add a `<v-btn to="/<path>" text="..." />` (or equivalent) to `App.vue`'s app bar, alongside the
-  existing `Home`/`Sample` links.
+- `App.vue`'s app bar carries only the app title/icon now — no nav links. Navigation instead goes
+  through the flow itself: `HomeView.vue`'s cards (`to="/uploader"`, `to="/downloader"`) are the
+  entry points. Link a new view the same way, from whichever screen leads into it, rather than
+  adding it to the app bar.
 
 ### 6. Validate
 
@@ -83,5 +87,3 @@ DOM-free ceiling for what this view can be unit-tested with. To see the screen i
   `routes.test.ts`) — never a separate `test/` or `__tests__/` tree.
 - API request/response types come from `apps/backend`'s `AppType` via Hono RPC — never hand-write
   a DTO for the response a composable consumes.
-- `SampleView.vue` / `HomeView.vue` and their supporting files are reference implementations, not
-  fixed scaffolding to keep around forever — follow their shape, don't just import from them.

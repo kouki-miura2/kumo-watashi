@@ -10,8 +10,8 @@ export const vuetify = createVuetify({
     themes: {
       light: {
         colors: {
-          primary: '#1867c0',
-          secondary: '#5cbbf6',
+          primary: '#0E1B24',
+          secondary: '#5C6B77',
         },
       },
     },

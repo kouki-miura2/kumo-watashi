@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Distinct name from apps/backend's "kumo-watashi-api" Worker — this serves only static
+  // assets and carries no D1/R2/secret bindings, unlike the API Worker.
+  "name": "kumo-watashi",
+  "compatibility_date": "2026-09-22",
+  "assets": {
+    "directory": "./dist",
+    // Vue Router uses createWebHistory(), so unmatched paths (e.g. a direct load of /downloader)
+    // must fall back to index.html instead of 404ing.
+    "not_found_handling": "single-page-application",
+  },
+}

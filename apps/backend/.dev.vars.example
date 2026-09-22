@@ -1,0 +1,6 @@
+# Copy to `.dev.vars` (gitignored) for `vp run backend#dev` (wrangler dev). Only SESSION_SECRET
+# goes here — GOOGLE_CLIENT_ID is set in wrangler.jsonc's `vars` (see wrangler.jsonc.example),
+# since it's not a secret, just don't reuse the original author's own OAuth client.
+
+# Optional — a random value keeps sessions alive across `wrangler dev` restarts.
+# SESSION_SECRET=

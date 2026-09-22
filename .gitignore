@@ -21,7 +21,13 @@ dist-ssr
 .wrangler
 .dev.vars
 .dev.vars.*
+!.dev.vars.example
 worker-configuration.d.ts
+
+# Contains this repo's own D1 database_id / R2 bucket_name — not exploitable alone, but this
+# repo is public, so treated as sensitive anyway (see .claude/skills/check-secrets). Copy
+# wrangler.jsonc.example to wrangler.jsonc and fill in real values locally.
+apps/backend/wrangler.jsonc
 
 # Editor directories and files
 .vscode/*

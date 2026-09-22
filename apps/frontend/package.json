@@ -8,24 +8,29 @@
     "check": "vp check",
     "test": "vp test",
     "build": "vue-tsc && vp build",
-    "preview": "vp preview"
+    "preview": "vp preview",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@mdi/font": "catalog:",
     "@tanstack/vue-query": "catalog:",
     "hono": "^4.13.7",
     "pinia": "^4.0.3",
+    "qr-scanner": "catalog:",
+    "qrcode": "catalog:",
     "vue": "^3.5.43",
     "vue-router": "^5.3.1",
     "vuetify": "^4.2.1"
   },
   "devDependencies": {
+    "@types/qrcode": "catalog:",
     "@vitejs/plugin-vue": "^6.0.9",
     "backend": "workspace:*",
     "typescript": "^6.0.3",
     "vite": "catalog:",
     "vite-plugin-vuetify": "^2.1.3",
     "vite-plus": "catalog:",
-    "vue-tsc": "^3.3.11"
+    "vue-tsc": "^3.3.11",
+    "wrangler": "catalog:"
   }
 }

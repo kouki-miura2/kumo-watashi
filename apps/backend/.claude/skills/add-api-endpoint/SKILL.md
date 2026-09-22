@@ -22,15 +22,13 @@ route (src/app.ts) -> service (src/service/*.service.ts)
   runtimes (Workers vs Node) can swap in different concrete DAOs without touching
   service/repository/route code.
 
-`src/{service,repository,dao}/sample.*`, wired to `GET /sample/:id` in `src/app.ts`, is a worked
-reference for this exact chain. Read it before starting, and copy its shape rather than inventing
-a new one.
+No route exists in this project yet, so there's no worked example to copy — follow the shape
+below for the first one.
 
 ## Procedure
 
 Build bottom-up — each layer's test needs the layer below it to already have an interface.
-Replace `<name>` below with the resource name (e.g. `widget`), matching the `sample.*` naming
-scheme.
+Replace `<name>` below with the resource name (e.g. `widget`).
 
 ### 1. DAO layer
 
@@ -39,7 +37,7 @@ scheme.
 - `src/dao/<name>.memory.ts` — a concrete in-memory implementation (`create<Name>Dao`). Add a
   real implementation (`.d1.ts`, `.node-pg.ts`, ...) alongside it when/if a real datastore is
   needed.
-- `src/dao/<name>.memory.test.ts` — co-located test for the concrete DAO (see `sample.memory.test.ts`).
+- `src/dao/<name>.memory.test.ts` — co-located test for the concrete DAO.
 
 ### 2. Repository layer
 
@@ -48,7 +46,7 @@ scheme.
   the domain entity.
 - `src/repository/<name>.repository.test.ts` — co-located test, using a hand-written fake
   `<Name>Dao` (not the real `.memory` implementation) so the test only exercises the repository's
-  mapping logic (see `sample.repository.test.ts`).
+  mapping logic.
 
 ### 3. Service layer
 
@@ -57,7 +55,7 @@ scheme.
   logic and orchestration. Express "not found" / "invalid" as `null` or a thrown error — never an
   HTTP status here.
 - `src/service/<name>.service.test.ts` — co-located test, using a hand-written fake
-  `<Name>Repository` (see `sample.service.test.ts`).
+  `<Name>Repository`.
 
 ### 4. Route layer (`src/app.ts`)
 
@@ -66,13 +64,15 @@ scheme.
   an HTTP response (status code, JSON body). No business logic in the route itself.
 - Extend `src/app.test.ts` (already co-located with `app.ts`) with cases for the new route, using
   a hand-written fake `<Name>Service` — covering the success path, the "not found"/error path, and
-  auth guard interaction if the route isn't excluded from it.
+  auth guard interaction if the route isn't excluded from it. `app.test.ts` currently mounts a
+  throwaway `/test-route` purely to exercise the shared middleware (no real route exists yet) —
+  once your route lands, test the middleware behavior through it instead and drop the throwaway
+  one.
 
 ### 5. Wire real dependencies
 
 - Update `src/worker.ts` and/or `src/server.ts` (whichever runtime(s) this project deploys) to
-  construct the real dao -> repository -> service chain and pass it into `createApp`, the same
-  way they already do for `sampleService`.
+  construct the real dao -> repository -> service chain and pass it into `createApp`.
 
 ### 6. Validate
 
@@ -88,5 +88,3 @@ vp test    # or: vp run backend#test
 - Each layer's test fakes only the interface directly below it, not the real implementation, so
   layers stay independently testable. The DAO's own test is the only one that touches the real
   (in this case in-memory) implementation.
-- Once real endpoints make `sample.*` (files and the `/sample/:id` route) unnecessary as a
-  reference, delete them per `apps/backend/AGENTS.md`.

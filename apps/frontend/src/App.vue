@@ -6,10 +6,9 @@ const notification = useNotificationStore()
 
 <template>
   <v-app>
-    <v-app-bar title="fs-ts">
-      <template #append>
-        <v-btn to="/" text="Home" />
-        <v-btn to="/sample" text="Sample" />
+    <v-app-bar title="KUMO-WATASHI">
+      <template #prepend>
+        <v-icon icon="mdi-weather-cloudy" class="ml-2" />
       </template>
     </v-app-bar>
     <v-main>

@@ -11,12 +11,20 @@ test('resolves the home route', () => {
   expect(resolved.name).toBe('home')
 })
 
-test('resolves the sample route', () => {
+test('resolves the uploader route', () => {
   const router = createRouter({ history: createMemoryHistory(), routes })
 
-  const resolved = router.resolve('/sample')
+  const resolved = router.resolve('/uploader')
 
-  expect(resolved.name).toBe('sample')
+  expect(resolved.name).toBe('uploader')
+})
+
+test('resolves the downloader route', () => {
+  const router = createRouter({ history: createMemoryHistory(), routes })
+
+  const resolved = router.resolve('/downloader')
+
+  expect(resolved.name).toBe('downloader')
 })
 
 test('has no match for an unknown path', () => {

@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kumo-watashi-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-11",
+  "observability": {
+    "enabled": true,
+  },
+  // Not a secret in the "grants access" sense, but don't reuse the original author's — this repo
+  // is OSS, and every deployer should authenticate against their own Google Cloud OAuth client
+  // (Google Cloud Console → APIs & Services → Credentials → OAuth client ID → Web application),
+  // not silently inherit someone else's. `SESSION_SECRET` is a real secret: set it via
+  // `.dev.vars` (untracked) locally and `wrangler secret put SESSION_SECRET` in prod.
+  "vars": {
+    "GOOGLE_CLIENT_ID": "<your-oauth-client-id>.apps.googleusercontent.com",
+  },
+  // Transfer Session + file metadata (docs/spec.md section 25). Durable across isolates, unlike
+  // the in-memory DAO the Node build still uses — see dao/transfer.d1.ts.
+  //
+  // Copy this file to `wrangler.jsonc` (gitignored, since this repo is public) and fill in the
+  // real database_name/database_id/bucket_name from `npx wrangler d1 create <name>` and
+  // `npx wrangler r2 bucket create <name>` — see README.md's "First-time deploy setup".
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "<your-d1-database-name>",
+      "database_id": "<your-d1-database-id>",
+    },
+  ],
+  // File bodies (docs/spec.md section 22).
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "<your-r2-bucket-name>",
+    },
+  ],
+}
