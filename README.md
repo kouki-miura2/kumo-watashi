@@ -104,16 +104,22 @@ vp run backend#start:node
 
 ## apps/frontend
 
-- Run the dev server:
-
-```bash
-vp run frontend#dev
-```
-
 - Run format/lint/type checks:
 
 ```bash
 vp run frontend#check
+```
+
+- Run the tests:
+
+```bash
+vp run frontend#test
+```
+
+- Run the dev server:
+
+```bash
+vp run frontend#dev
 ```
 
 - Build:

@@ -1,3 +1,4 @@
+import 'vuetify/styles'
 import { createVuetify } from 'vuetify'
 
 /** Theme skeleton — extend `themes` as the app's branding is defined. */

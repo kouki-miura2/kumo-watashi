@@ -5,7 +5,7 @@
     <v-app-bar title="fs-ts">
       <template #append>
         <v-btn to="/" text="Home" />
-        <v-btn to="/about" text="About" />
+        <v-btn to="/sample" text="Sample" />
       </template>
     </v-app-bar>
     <v-main>
