@@ -1,4 +1,6 @@
+import '@mdi/font/css/materialdesignicons.css'
 import 'vuetify/styles'
+import './fonts.css'
 import { createVuetify } from 'vuetify'
 
 /** Theme skeleton — extend `themes` as the app's branding is defined. */

@@ -7,7 +7,10 @@ const notification = useNotificationStore()
 <template>
   <v-container class="py-8">
     <v-card max-width="480" class="mx-auto">
-      <v-card-title>Sample</v-card-title>
+      <v-card-title>
+        <v-icon icon="mdi-check-circle" class="mr-2" />
+        Sample
+      </v-card-title>
       <v-card-text>
         <p>Vue 3 + Vuetify 4 + vue-router + Pinia + Hono RPC boilerplate.</p>
       </v-card-text>

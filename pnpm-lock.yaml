@@ -164,6 +164,9 @@ settings:
 
 catalogs:
   default:
+    '@mdi/font':
+      specifier: ^7.4.47
+      version: 7.4.47
     '@tanstack/vue-query':
       specifier: ^5.103.1
       version: 5.103.1
@@ -218,6 +221,9 @@ importers:
 
   apps/frontend:
     dependencies:
+      '@mdi/font':
+        specifier: 'catalog:'
+        version: 7.4.47
       '@tanstack/vue-query':
         specifier: 'catalog:'
         version: 5.103.1(vue@3.5.43(typescript@6.0.3))
@@ -696,6 +702,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
+
+  '@mdi/font@7.4.47':
+    resolution: {integrity: sha512-43MtGpd585SNzHZPcYowu/84Vz2a2g31TvPMTm9uTiCSWzaheQySUcSyUH/46fPnuPQWof2yd0pGBtzee/IQWw==}
 
   '@oxc-project/runtime@0.150.0':
     resolution: {integrity: sha512-vC4tN4n2c+gVq69Oi6CoZxGk/1mYjLiN4hVEYwvtuns/S4QwUBiJYViwLGLxPaLQnsY5FQDgGs+h6moAmSedvA==}
@@ -2514,6 +2523,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  '@mdi/font@7.4.47': {}
 
   '@oxc-project/runtime@0.150.0': {}
 

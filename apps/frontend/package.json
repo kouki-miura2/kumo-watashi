@@ -11,6 +11,7 @@
     "preview": "vp preview"
   },
   "dependencies": {
+    "@mdi/font": "catalog:",
     "@tanstack/vue-query": "catalog:",
     "hono": "^4.13.7",
     "pinia": "^4.0.3",

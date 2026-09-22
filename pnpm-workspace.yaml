@@ -6,6 +6,7 @@ packages:
 catalogMode: prefer
 
 catalog:
+  '@mdi/font': ^7.4.47
   '@tanstack/vue-query': ^5.103.1
   '@types/node': ^24
   typescript: ^7.0.2
