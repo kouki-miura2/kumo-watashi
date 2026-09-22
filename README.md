@@ -1,6 +1,10 @@
 # Vite+ Monorepo Starter
 
-A starter for creating a Vite+ monorepo.
+A starter for creating a Vite+ monorepo, with `apps/backend`, `apps/frontend`, and
+`packages/utils`. `apps/backend` is a Hono API (deployable to Cloudflare Workers or as a
+standalone Node.js server), `apps/frontend` is a Vue 3 + Vuetify 4 client that talks to it through
+Hono RPC (typed request/response, no hand-shared types package), and `packages/utils` holds
+runtime-agnostic code shared by both.
 
 ## Development
 
