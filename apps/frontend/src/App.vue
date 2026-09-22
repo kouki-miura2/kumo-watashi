@@ -1,4 +1,8 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { useNotificationStore } from './stores/notification.ts'
+
+const notification = useNotificationStore()
+</script>
 
 <template>
   <v-app>
@@ -11,5 +15,6 @@
     <v-main>
       <router-view />
     </v-main>
+    <v-snackbar v-model="notification.visible">{{ notification.message }}</v-snackbar>
   </v-app>
 </template>

@@ -6,6 +6,7 @@ packages:
 catalogMode: prefer
 
 catalog:
+  '@tanstack/vue-query': ^5.103.1
   '@types/node': ^24
   typescript: ^7.0.2
   vite: npm:@voidzero-dev/vite-plus-core@0.3.3
@@ -19,6 +20,7 @@ peerDependencyRules:
     vite: '*'
 allowBuilds:
   esbuild: true
+  vue-demi: true
   workerd: true
 minimumReleaseAgeExclude:
   - tsx@4.23.14

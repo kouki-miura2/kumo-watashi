@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { watch } from 'vue'
 
-import { useSampleStore } from '../stores/sample.ts'
+import { useSampleQuery } from '../composables/useSampleQuery.ts'
+import { useNotificationStore } from '../stores/notification.ts'
 
-const sampleStore = useSampleStore()
+const { data, isPending, isError, error, refetch } = useSampleQuery('1')
+const notification = useNotificationStore()
 
-onMounted(() => {
-  sampleStore.fetchSample('1')
+watch(error, (err) => {
+  if (err) notification.show(err.message)
 })
 </script>
 
@@ -15,16 +17,12 @@ onMounted(() => {
     <v-card max-width="480" class="mx-auto">
       <v-card-title>Sample response</v-card-title>
       <v-card-text>
-        <p v-if="sampleStore.loading">Loading...</p>
-        <p v-else-if="sampleStore.error">Error: {{ sampleStore.error }}</p>
-        <p v-else>{{ sampleStore.message ?? 'unknown' }}</p>
+        <p v-if="isPending">Loading...</p>
+        <p v-else-if="isError">Error: {{ error?.message }}</p>
+        <p v-else>{{ data?.message ?? 'unknown' }}</p>
       </v-card-text>
       <v-card-actions>
-        <v-btn
-          text="Refresh"
-          :loading="sampleStore.loading"
-          @click="sampleStore.fetchSample('1')"
-        />
+        <v-btn text="Refresh" :loading="isPending" @click="refetch()" />
       </v-card-actions>
     </v-card>
   </v-container>
