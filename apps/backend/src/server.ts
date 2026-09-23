@@ -1,13 +1,16 @@
 /// <reference types="node" />
 import { serve } from '@hono/node-server'
 
-import { createApp } from './app.ts'
+import { AUTH_EXCLUDE_PATH_PATTERNS, AUTH_EXCLUDE_PATHS, createApp } from './app.ts'
 import { createTransferDao } from './dao/transfer.memory.ts'
-import { createAuthGuard } from './repository/auth-guard.header.ts'
+import { createSessionTokenAuthGuard } from './repository/auth-guard.session-token.ts'
+import { createCleanupLock } from './repository/cleanup-lock.memory.ts'
 import { createFileBlobStore } from './repository/file-blob-store.memory.ts'
 import { createGoogleIdTokenVerifier } from './repository/google-id-token-verifier.jose.ts'
+import { createRateLimiter } from './repository/rate-limiter.memory.ts'
 import { createSessionTokenIssuer } from './repository/session-token.jose.ts'
 import { createTransferRepository } from './repository/transfer.repository.ts'
+import { createTurnstileVerifier } from './repository/turnstile-verifier.memory.ts'
 import { createTransferService } from './service/transfer.service.ts'
 
 // `SESSION_SECRET` is a real secret — set it via a `.env` (untracked) for a persistent local
@@ -23,10 +26,17 @@ if (!googleClientId) {
   throw new Error('GOOGLE_CLIENT_ID is required — set it in .env (see README.md)')
 }
 
+const sessionTokens = createSessionTokenIssuer(sessionSecret)
+
 const app = createApp({
-  auth: { guard: createAuthGuard(), enabled: false, excludePaths: [] },
-  googleIdTokens: createGoogleIdTokenVerifier(googleClientId, sessionSecret),
-  sessionTokens: createSessionTokenIssuer(sessionSecret),
+  auth: {
+    guard: createSessionTokenAuthGuard(sessionTokens),
+    enabled: true,
+    excludePaths: AUTH_EXCLUDE_PATHS,
+    excludePathPatterns: AUTH_EXCLUDE_PATH_PATTERNS,
+  },
+  googleIdTokens: createGoogleIdTokenVerifier(googleClientId),
+  sessionTokens,
   // In-memory, unlike worker.ts's D1/R2-backed pair — this process is long-lived (unlike a
   // Workers isolate), so a plain Map already survives for the life of the server; wire up
   // real persistence here too if this entrypoint ever needs to survive a restart.
@@ -34,6 +44,10 @@ const app = createApp({
     createTransferRepository(createTransferDao()),
     createFileBlobStore(),
   ),
+  rateLimiter: createRateLimiter(),
+  cleanupLock: createCleanupLock(),
+  // Stub, not the real Cloudflare siteverify call — see repository/turnstile-verifier.memory.ts.
+  turnstile: createTurnstileVerifier(),
 })
 const port = Number(process.env.PORT ?? 8787)
 

@@ -11,10 +11,19 @@
   // (Google Cloud Console → APIs & Services → Credentials → OAuth client ID → Web application),
   // not silently inherit someone else's. `SESSION_SECRET` is a real secret: set it via
   // `.dev.vars` (untracked) locally and `wrangler secret put SESSION_SECRET` in prod.
+  //
+  // TURNSTILE_SITE_KEY: create your own Turnstile widget (Cloudflare dashboard → Turnstile →
+  // Add widget, or `wrangler turnstile widget create`), registered for this deployment's own
+  // domain(s) — don't reuse the original author's, it won't work for a domain it wasn't
+  // registered for anyway. Site key is public (docs/spec.md section 9). TURNSTILE_HOSTNAMES is
+  // the same domain list, comma-separated, used to pin accepted siteverify responses.
+  // TURNSTILE_SECRET_KEY is the widget's real secret: set it the same way as SESSION_SECRET.
   "vars": {
     "GOOGLE_CLIENT_ID": "<your-oauth-client-id>.apps.googleusercontent.com",
+    "TURNSTILE_SITE_KEY": "<your-turnstile-site-key>",
+    "TURNSTILE_HOSTNAMES": "<your-frontend-domain>",
   },
-  // Transfer Session + file metadata (docs/spec.md section 25). Durable across isolates, unlike
+  // Transfer Session + file metadata (docs/spec.md section 23). Durable across isolates, unlike
   // the in-memory DAO the Node build still uses — see dao/transfer.d1.ts.
   //
   // Copy this file to `wrangler.jsonc` (gitignored, since this repo is public) and fill in the

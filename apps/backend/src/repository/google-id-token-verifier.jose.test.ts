@@ -11,25 +11,25 @@ import { createGoogleIdTokenVerifier } from './google-id-token-verifier.jose.ts'
 
 const mockedJwtVerify = vi.mocked(jwtVerify)
 
-test('returns an anonymized id for a valid token, never the raw Google sub', async () => {
+const mockPayload = (payload: Record<string, unknown>) => {
   mockedJwtVerify.mockResolvedValue({
-    payload: { sub: 'google-subject-123' },
+    payload,
   } as unknown as Awaited<ReturnType<typeof jwtVerify>>)
+}
 
-  const verifier = createGoogleIdTokenVerifier('test-client-id', 'test-secret')
+test('returns the verified, email_verified email as-is — docs/spec.md section 8.2 logs it unanonymized', async () => {
+  mockPayload({ sub: 'google-subject-123', email: 'yuki@example.com', email_verified: true })
+
+  const verifier = createGoogleIdTokenVerifier('test-client-id')
   const result = await verifier.verify('a.valid.token')
 
-  expect(result).not.toBeNull()
-  expect(result?.id).not.toBe('google-subject-123')
-  expect(result?.id).toMatch(/^[0-9a-f]{64}$/)
+  expect(result).toEqual({ email: 'yuki@example.com' })
 })
 
 test('checks the token against Google issuers and the configured client id as audience', async () => {
-  mockedJwtVerify.mockResolvedValue({
-    payload: { sub: 'google-subject-123' },
-  } as unknown as Awaited<ReturnType<typeof jwtVerify>>)
+  mockPayload({ sub: 'google-subject-123', email: 'yuki@example.com', email_verified: true })
 
-  const verifier = createGoogleIdTokenVerifier('expected-client-id', 'test-secret')
+  const verifier = createGoogleIdTokenVerifier('expected-client-id')
   await verifier.verify('a.valid.token')
 
   expect(mockedJwtVerify).toHaveBeenCalledWith(
@@ -42,33 +42,28 @@ test('checks the token against Google issuers and the configured client id as au
   )
 })
 
-test('produces the same anonymized id for the same Google subject', async () => {
-  mockedJwtVerify.mockResolvedValue({
-    payload: { sub: 'google-subject-123' },
-  } as unknown as Awaited<ReturnType<typeof jwtVerify>>)
-
-  const verifier = createGoogleIdTokenVerifier('test-client-id', 'test-secret')
-  const first = await verifier.verify('token-a')
-  const second = await verifier.verify('token-b')
-
-  expect(first?.id).toBe(second?.id)
-})
-
 test('returns null when verification throws (invalid signature, expired, wrong audience, ...)', async () => {
   mockedJwtVerify.mockRejectedValue(new Error('signature verification failed'))
 
-  const verifier = createGoogleIdTokenVerifier('test-client-id', 'test-secret')
+  const verifier = createGoogleIdTokenVerifier('test-client-id')
   const result = await verifier.verify('a.bad.token')
 
   expect(result).toBeNull()
 })
 
-test('returns null when the verified payload has no subject', async () => {
-  mockedJwtVerify.mockResolvedValue({
-    payload: {},
-  } as unknown as Awaited<ReturnType<typeof jwtVerify>>)
+test('returns null when the verified payload has no email', async () => {
+  mockPayload({ sub: 'google-subject-123', email_verified: true })
 
-  const verifier = createGoogleIdTokenVerifier('test-client-id', 'test-secret')
+  const verifier = createGoogleIdTokenVerifier('test-client-id')
+  const result = await verifier.verify('a.valid.token')
+
+  expect(result).toBeNull()
+})
+
+test('returns null when the email is not marked verified by Google', async () => {
+  mockPayload({ sub: 'google-subject-123', email: 'yuki@example.com', email_verified: false })
+
+  const verifier = createGoogleIdTokenVerifier('test-client-id')
   const result = await verifier.verify('a.valid.token')
 
   expect(result).toBeNull()

@@ -11,34 +11,20 @@ const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com']
 // instead of re-fetching Google's JWKS on each call.
 const googleJwks = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'))
 
-const hmacHex = async (value: string, secret: string): Promise<string> => {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value))
-  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, '0')).join(
-    '',
-  )
-}
-
-/** Verifies a Google ID token's signature/issuer/audience against Google's public JWKS, and
- * anonymizes the subject before it ever leaves this function — see docs/spec.md section 8. */
-export const createGoogleIdTokenVerifier = (
-  clientId: string,
-  anonymizationSecret: string,
-): GoogleIdTokenVerifier => ({
+/** Verifies a Google ID token's signature/issuer/audience against Google's public JWKS and
+ * returns the verified email as-is — docs/spec.md section 8.2 records it unanonymized in logs so
+ * the operator can tell their own use apart from an authorized third party's or an unauthorized
+ * one's. Requires `email_verified` (Google's own recommendation before trusting the claim). */
+export const createGoogleIdTokenVerifier = (clientId: string): GoogleIdTokenVerifier => ({
   verify: async (idToken): Promise<VerifiedGoogleUser | null> => {
     try {
       const { payload } = await jwtVerify(idToken, googleJwks, {
         issuer: GOOGLE_ISSUERS,
         audience: clientId,
       })
-      if (typeof payload.sub !== 'string' || !payload.sub) return null
-      return { id: await hmacHex(payload.sub, anonymizationSecret) }
+      if (typeof payload.email !== 'string' || !payload.email) return null
+      if (payload.email_verified !== true) return null
+      return { email: payload.email }
     } catch {
       return null
     }

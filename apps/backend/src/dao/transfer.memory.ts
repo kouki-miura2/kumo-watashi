@@ -1,7 +1,7 @@
 import type { TransferDao, TransferSessionRecord } from './transfer.interface.ts'
 
 /** Per-isolate in-memory store — resets on restart/isolate recycle, same caveat as the ephemeral
- * session secret in `worker.ts`. Fine for a 3-minute-TTL resource; swap in a `.d1.ts` DAO behind
+ * session secret in `worker.ts`. Fine for a 1-minute-TTL resource; swap in a `.d1.ts` DAO behind
  * the same interface once cross-isolate durability is needed. */
 export const createTransferDao = (): TransferDao => {
   const sessions = new Map<string, TransferSessionRecord>()
@@ -30,5 +30,7 @@ export const createTransferDao = (): TransferDao => {
     delete: async (id) => {
       sessions.delete(id)
     },
+    findExpiredIds: async (nowMs) =>
+      [...sessions.values()].filter((s) => s.expiresAt <= nowMs).map((s) => s.id),
   }
 }

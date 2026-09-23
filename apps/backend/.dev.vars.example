@@ -1,6 +1,18 @@
-# Copy to `.dev.vars` (gitignored) for `vp run backend#dev` (wrangler dev). Only SESSION_SECRET
-# goes here — GOOGLE_CLIENT_ID is set in wrangler.jsonc's `vars` (see wrangler.jsonc.example),
-# since it's not a secret, just don't reuse the original author's own OAuth client.
+# Copy to `.dev.vars` (gitignored) for `vp run backend#dev` (wrangler dev). Only real secrets go
+# here — GOOGLE_CLIENT_ID/TURNSTILE_SITE_KEY/TURNSTILE_HOSTNAMES are set in wrangler.jsonc's
+# `vars` (see wrangler.jsonc.example), since they're not secrets, just don't reuse the original
+# author's own OAuth client / Turnstile widget.
 
 # Optional — a random value keeps sessions alive across `wrangler dev` restarts.
 # SESSION_SECRET=
+
+# Required for `wrangler dev` (worker.ts always calls the real Turnstile siteverify — unlike the
+# Node entrypoint's stub) — the secret half of your own Turnstile widget from wrangler.jsonc's
+# TURNSTILE_SITE_KEY.
+# TURNSTILE_SECRET_KEY=
+
+# Optional but needed to actually create a Transfer Session locally — overrides wrangler.jsonc's
+# TURNSTILE_HOSTNAMES (which only lists the production hostname). Without this, siteverify's
+# `hostname` comes back as `localhost` and never matches, so Turnstile verification 403s on every
+# attempt even though the widget itself solves successfully.
+# TURNSTILE_HOSTNAMES=localhost

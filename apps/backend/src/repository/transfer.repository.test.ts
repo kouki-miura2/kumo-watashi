@@ -28,6 +28,7 @@ const makeFakeDao = () => {
     delete: async (id) => {
       if (stored?.id === id) stored = null
     },
+    findExpiredIds: async (nowMs) => (stored && stored.expiresAt <= nowMs ? [stored.id] : []),
   }
   return { dao, getStored: () => stored }
 }
@@ -143,4 +144,12 @@ test('deletes a session so it can no longer be found', async () => {
   await repository.delete(created.id)
 
   expect(await repository.findById(created.id)).toBeNull()
+})
+
+test('passes through the expired-id lookup', async () => {
+  const { dao } = makeFakeDao()
+  const repository = createTransferRepository(dao)
+  const created = await repository.create({ ...CREATE_INPUT, ttlMs: -1 })
+
+  expect(await repository.findExpiredIds(Date.now())).toEqual([created.id])
 })

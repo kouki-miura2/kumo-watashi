@@ -2,8 +2,8 @@ import { jwtVerify, SignJWT } from 'jose'
 
 import type { SessionTokenIssuer } from './session-token.interface.ts'
 
-// docs/spec.md section 27: authentication sessions are short-lived, longer than a Transfer
-// Session (3 min) but not held onto for long.
+// docs/spec.md section 25: authentication sessions are short-lived, longer than a Transfer
+// Session (1 min) but not held onto for long.
 const SESSION_TTL = '10m'
 
 /** Signs/verifies our own short-lived auth session token (HS256) — separate from the Google ID

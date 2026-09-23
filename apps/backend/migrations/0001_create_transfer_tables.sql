@@ -1,6 +1,6 @@
 -- Migration number: 0001 	 2026-09-22T08:51:35.377Z
 
--- docs/spec.md section 25. File bodies live in R2 (repository/file-blob-store.r2.ts), keyed by
+-- docs/spec.md section 23. File bodies live in R2 (repository/file-blob-store.r2.ts), keyed by
 -- transfer_files.id — no separate blob-key column needed.
 
 CREATE TABLE transfer_sessions (

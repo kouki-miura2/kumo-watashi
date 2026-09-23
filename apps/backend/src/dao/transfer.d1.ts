@@ -28,7 +28,7 @@ const toFileRecord = (row: FileRow): TransferFileRecord => ({
   size: row.size,
 })
 
-/** Cloudflare D1 implementation (docs/spec.md section 25) — metadata only, durable across
+/** Cloudflare D1 implementation (docs/spec.md section 23) — metadata only, durable across
  * isolates unlike `transfer.memory.ts`. File bodies live separately in R2, see
  * `repository/file-blob-store.r2.ts`. */
 export const createTransferDao = (db: D1Database): TransferDao => {
@@ -134,6 +134,14 @@ export const createTransferDao = (db: D1Database): TransferDao => {
         db.prepare('DELETE FROM transfer_files WHERE transfer_id = ?').bind(id),
         db.prepare('DELETE FROM transfer_sessions WHERE id = ?').bind(id),
       ])
+    },
+
+    findExpiredIds: async (nowMs) => {
+      const { results } = await db
+        .prepare('SELECT id FROM transfer_sessions WHERE expires_at <= ?')
+        .bind(nowMs)
+        .all<{ id: string }>()
+      return results.map((row) => row.id)
     },
   }
 }

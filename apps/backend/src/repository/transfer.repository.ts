@@ -17,7 +17,7 @@ export interface TransferSession {
 
 export interface CreateTransferInput {
   senderLabel: string
-  /** Plaintext one-time code, e.g. `K7M429Q8` — hashed before it ever reaches the DAO. */
+  /** Plaintext one-time code, e.g. `4A7T93C9` — hashed before it ever reaches the DAO. */
   joinCode: string
   /** Plaintext QR secret — hashed before it ever reaches the DAO. */
   qrSecret: string
@@ -32,6 +32,7 @@ export interface TransferRepository {
   addFile: (transferId: string, file: TransferFileMeta) => Promise<TransferSession | null>
   extend: (id: string, expiresAt: number) => Promise<TransferSession | null>
   delete: (id: string) => Promise<void>
+  findExpiredIds: (nowMs: number) => Promise<string[]>
 }
 
 const sha256Hex = async (value: string): Promise<string> => {
@@ -86,4 +87,5 @@ export const createTransferRepository = (dao: TransferDao): TransferRepository =
     return record && toDomain(record)
   },
   delete: (id) => dao.delete(id),
+  findExpiredIds: (nowMs) => dao.findExpiredIds(nowMs),
 })

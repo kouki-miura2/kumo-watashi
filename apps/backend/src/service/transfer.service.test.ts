@@ -51,6 +51,8 @@ const makeFakeRepository = () => {
     delete: async (id) => {
       sessions.delete(id)
     },
+    findExpiredIds: async (nowMs) =>
+      [...sessions.values()].filter((s) => s.expiresAt <= nowMs).map((s) => s.id),
   }
 
   return { repository, sessions }
@@ -86,9 +88,26 @@ test('creates a transfer with a well-formed join code and QR secret', async () =
 
   const result = await service.createTransfer('yuki')
 
-  expect(result.joinCode).toMatch(/^[A-Z]{2}[0-9]{6}$/)
+  // docs/spec.md section 14 — both pools exclude characters easily confused with each other.
+  expect(result.joinCode).toMatch(/^[ACDEFHJKLMNPQRTUVWXY3479]{8}$/)
+  expect(result.joinCode.split('').filter((c) => /[A-Z]/.test(c))).toHaveLength(4)
+  expect(result.joinCode.split('').filter((c) => /[0-9]/.test(c))).toHaveLength(4)
   expect(result.qrSecret).toMatch(/^[0-9a-f]{64}$/)
   expect(result.id).toEqual(expect.any(String))
+})
+
+test("the join code's four letters land at random positions, not always the first four", async () => {
+  const { repository } = makeFakeRepository()
+  const { blobStore } = makeFakeBlobStore()
+  const service = createTransferService(repository, blobStore)
+
+  const codes = await Promise.all(
+    Array.from({ length: 50 }, () => service.createTransfer('yuki').then((r) => r.joinCode)),
+  )
+
+  // Regression test: letters were previously always generated at positions 0-3. With 50 samples
+  // and C(8,4) = 70 equally likely position-sets, this fails by chance with probability (1/70)^49.
+  expect(codes.some((code) => !/^[A-Z]{4}/.test(code))).toBe(true)
 })
 
 test('adds a file and stores its bytes in the blob store', async () => {
@@ -146,7 +165,7 @@ test('rejects a file once the transfer already has the maximum file count', asyn
   const { blobStore } = makeFakeBlobStore()
   const service = createTransferService(repository, blobStore)
   const { id } = await service.createTransfer('yuki')
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 5; i++) {
     const added = await service.addFile(id, { ...FILE, filename: `f${i}.pdf` })
     expect(added.status).toBe('ok')
   }
@@ -259,7 +278,7 @@ test('cannot extend an already-expired session', async () => {
   expect(await service.extend(id)).toEqual({ status: 'expired' })
 })
 
-test('deleting a transfer removes its files from the blob store too', async () => {
+test('deleting a transfer removes its files from the blob store too, and reports what was deleted', async () => {
   const { repository } = makeFakeRepository()
   const { blobStore, blobs } = makeFakeBlobStore()
   const service = createTransferService(repository, blobStore)
@@ -267,8 +286,44 @@ test('deleting a transfer removes its files from the blob store too', async () =
   const added = await service.addFile(id, FILE)
   if (added.status !== 'ok') throw new Error('setup failed')
 
-  await service.deleteTransfer(id)
+  const deleted = await service.deleteTransfer(id)
 
   expect(await service.getSession(id)).toEqual({ status: 'not_found' })
   expect(blobs.has(added.file.id)).toBe(false)
+  expect(deleted).toEqual({ transferId: id, files: [added.file] })
+})
+
+test('deleting an unknown transfer reports no files deleted', async () => {
+  const { repository } = makeFakeRepository()
+  const { blobStore } = makeFakeBlobStore()
+  const service = createTransferService(repository, blobStore)
+
+  expect(await service.deleteTransfer('missing')).toEqual({ transferId: 'missing', files: [] })
+})
+
+test('deleteExpiredSessions physically removes only sessions past their TTL', async () => {
+  const { repository, sessions } = makeFakeRepository()
+  const { blobStore, blobs } = makeFakeBlobStore()
+  const service = createTransferService(repository, blobStore)
+  const expired = await service.createTransfer('yuki')
+  const active = await service.createTransfer('yuki')
+  const addedToExpired = await service.addFile(expired.id, FILE)
+  if (addedToExpired.status !== 'ok') throw new Error('setup failed')
+  sessions.get(expired.id)!.expiresAt = Date.now() - 1
+
+  const deleted = await service.deleteExpiredSessions()
+
+  expect(deleted).toEqual([{ transferId: expired.id, files: [addedToExpired.file] }])
+  expect(await service.getSession(expired.id)).toEqual({ status: 'not_found' })
+  expect(blobs.has(addedToExpired.file.id)).toBe(false)
+  expect(await service.getSession(active.id)).toMatchObject({ status: 'ok' })
+})
+
+test('deleteExpiredSessions is a no-op when nothing has expired', async () => {
+  const { repository } = makeFakeRepository()
+  const { blobStore } = makeFakeBlobStore()
+  const service = createTransferService(repository, blobStore)
+  await service.createTransfer('yuki')
+
+  expect(await service.deleteExpiredSessions()).toEqual([])
 })

@@ -100,3 +100,13 @@ test('removes a session so it can no longer be found', async () => {
 
   expect(await dao.findById('transfer-1')).toBeNull()
 })
+
+test('finds only the sessions whose expiresAt has already passed', async () => {
+  const dao = createTransferDao()
+  await dao.create(makeRecord({ id: 'expired-1', expiresAt: 1000 }))
+  await dao.create(makeRecord({ id: 'still-active', expiresAt: 5000 }))
+
+  const expired = await dao.findExpiredIds(2000)
+
+  expect(expired).toEqual(['expired-1'])
+})

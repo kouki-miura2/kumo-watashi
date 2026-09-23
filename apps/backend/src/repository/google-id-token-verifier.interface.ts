@@ -1,6 +1,7 @@
 export interface VerifiedGoogleUser {
-  /** Anonymized identifier (HMAC of Google's `sub`), never the raw Google id — see docs/spec.md section 8. */
-  id: string
+  /** The verified account's email address, used as-is (not anonymized) for session identity and
+   * audit logging — see docs/spec.md section 8.2. */
+  email: string
 }
 
 export interface GoogleIdTokenVerifier {

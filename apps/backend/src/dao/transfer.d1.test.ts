@@ -97,6 +97,14 @@ const makeFakeD1 = () => {
           const rows = files.filter((f) => f.transfer_id === args[0])
           return { success: true, meta: {}, results: rows } as unknown as D1Result<T>
         }
+        if (sql.startsWith('SELECT id FROM transfer_sessions WHERE expires_at <= ?')) {
+          const rows = sessions.filter((s) => s.expires_at <= (args[0] as number))
+          return {
+            success: true,
+            meta: {},
+            results: rows.map((s) => ({ id: s.id })),
+          } as unknown as D1Result<T>
+        }
         throw new Error(`fake D1: unhandled all() query: ${sql}`)
       },
       raw: async () => {
@@ -212,6 +220,17 @@ test('returns null when extending a session that does not exist', async () => {
   const dao = createTransferDao(makeFakeD1().db)
 
   expect(await dao.updateExpiresAt('missing', 2000)).toBeNull()
+})
+
+test('finds only the sessions whose expiresAt has already passed', async () => {
+  const { db } = makeFakeD1()
+  const dao = createTransferDao(db)
+  await dao.create({ ...RECORD, id: 'expired-1', expiresAt: 1000 })
+  await dao.create({ ...RECORD, id: 'still-active', expiresAt: 5000 })
+
+  const expired = await dao.findExpiredIds(2000)
+
+  expect(expired).toEqual(['expired-1'])
 })
 
 test('removes a session and its files so neither can be found again', async () => {

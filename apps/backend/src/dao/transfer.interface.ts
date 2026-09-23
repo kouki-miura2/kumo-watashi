@@ -25,4 +25,7 @@ export interface TransferDao {
   addFile: (transferId: string, file: TransferFileRecord) => Promise<TransferSessionRecord | null>
   updateExpiresAt: (id: string, expiresAt: number) => Promise<TransferSessionRecord | null>
   delete: (id: string) => Promise<void>
+  /** docs/spec.md section 5.1 — ids of sessions whose `expiresAt` has already passed, for the
+   * opportunistic cleanup sweep (see service/transfer.service.ts's `deleteExpiredSessions`). */
+  findExpiredIds: (nowMs: number) => Promise<string[]>
 }
