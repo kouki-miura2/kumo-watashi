@@ -176,6 +176,9 @@ catalogs:
     '@types/qrcode':
       specifier: ^1.5.6
       version: 1.5.6
+    client-zip:
+      specifier: ^2.5.1
+      version: 2.5.1
     qr-scanner:
       specifier: ^1.4.2
       version: 1.4.2
@@ -242,6 +245,9 @@ importers:
       '@tanstack/vue-query':
         specifier: 'catalog:'
         version: 5.103.1(vue@3.5.43(typescript@6.0.3))
+      client-zip:
+        specifier: 'catalog:'
+        version: 2.5.1
       hono:
         specifier: ^4.13.7
         version: 4.13.8
@@ -1659,6 +1665,9 @@ packages:
   chokidar@5.0.0:
     resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
     engines: {node: '>= 20.19.0'}
+
+  client-zip@2.5.1:
+    resolution: {integrity: sha512-yOvNSBsQX1B7wtdvIVXJEIIShrlPiX+adhli7sWvQhsx3nX1DjvpSt+AwOxaX+3DCsT/Yx0nRy5hIjRLIYfebw==}
 
   cliui@6.0.0:
     resolution: {integrity: sha512-t6wbgtoCXvAzst7QgXxJYqPt0usEfbgQdftEPbLL/cvv6HPE5VgvqCuAIDR0NgU52ds6rFwqrgakNLrHEjCbrQ==}
@@ -3420,6 +3429,8 @@ snapshots:
   chokidar@5.0.0:
     dependencies:
       readdirp: 5.1.1
+
+  client-zip@2.5.1: {}
 
   cliui@6.0.0:
     dependencies:

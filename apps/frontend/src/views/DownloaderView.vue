@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { downloadZip } from 'client-zip'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { VOtpInput } from 'vuetify/components'
@@ -210,36 +211,50 @@ const downloadSingle = async (file: ReceivedFile) => {
   }
 }
 
-const downloadNext = async () => {
-  const current = selectedFiles.value.find((f) => f.status === 'pending')
-  if (!current) return
-  current.status = 'downloading'
+// Browsers block automatic downloads past the first one in a row that isn't tied to its own user
+// gesture (Chrome/Safari included, desktop and mobile) — a real user click only covers the single
+// "download all" click that starts this, not each file inside the loop below. So multiple files
+// are always fetched individually (for per-file progress) but saved as one `saveBlob` call: a
+// single real file when there's only one, otherwise a zip built with `client-zip` — either way,
+// exactly one browser-triggered download, which is what the block is actually watching for.
+const startDownload = async () => {
+  if (selectedCount.value === 0) return
+  phase.value = 'downloading'
+  downloadAbortController = new AbortController()
+  const downloaded: { name: string; blob: Blob }[] = []
   try {
-    downloadAbortController = new AbortController()
-    const blob = await downloadWithProgress(
-      downloadUrl(current.id),
-      (percent) => {
-        current.progress = percent
-      },
-      downloadAbortController.signal,
-    )
-    saveBlob(blob, current.name)
-    current.status = 'done'
-    current.progress = 100
-    await downloadNext()
+    for (const file of selectedFiles.value) {
+      file.status = 'downloading'
+      const blob = await downloadWithProgress(
+        downloadUrl(file.id),
+        (percent) => {
+          file.progress = percent
+        },
+        downloadAbortController.signal,
+      )
+      downloaded.push({ name: file.name, blob })
+      file.status = 'done'
+      file.progress = 100
+    }
+    if (downloaded.length === 1) {
+      saveBlob(downloaded[0]!.blob, downloaded[0]!.name)
+    } else {
+      const zipBlob = await downloadZip(
+        downloaded.map((f) => ({ input: f.blob, name: f.name })),
+      ).blob()
+      saveBlob(zipBlob, 'kumo-watashi.zip')
+    }
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') return
     console.error('Download failed:', error)
-    notification.show(`${current.name} の保存に失敗しました`)
-    current.status = 'pending'
-    current.progress = 0
+    notification.show('ダウンロードに失敗しました')
+    // A zip needs every file, so a partial batch can't be salvaged — reset the whole selection
+    // back to 'pending' rather than just the one that failed, so retrying re-fetches cleanly.
+    for (const f of selectedFiles.value) {
+      f.status = 'pending'
+      f.progress = 0
+    }
   }
-}
-
-const startDownload = () => {
-  if (selectedCount.value === 0) return
-  phase.value = 'downloading'
-  downloadNext()
 }
 
 const cancelDownload = () => {
