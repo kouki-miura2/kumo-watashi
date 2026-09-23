@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vite-plus/test'
 
-import { uploadFileWithProgress } from './useUpload.ts'
+import { UnauthorizedError, uploadFileWithProgress } from './useUpload.ts'
 
 /** A hand-rolled stand-in for the browser's `XMLHttpRequest`, which doesn't exist in the plain
  * Node environment these tests run in (see apps/frontend/AGENTS.md) — exposes just enough of the
@@ -91,6 +91,15 @@ test('rejects with the server-provided reason on a non-2xx response', async () =
   xhr().onload?.()
 
   await expect(promise).rejects.toThrow('1ファイルは最大100MBまでです')
+})
+
+test('rejects with UnauthorizedError on a 401 — callers use this to prompt for re-login rather than showing a generic failure', async () => {
+  const { promise, xhr } = send()
+
+  xhr().status = 401
+  xhr().onload?.()
+
+  await expect(promise).rejects.toBeInstanceOf(UnauthorizedError)
 })
 
 test('rejects with a generic message when the error body is not JSON', async () => {

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 
 import { apiClient } from '../api/client.ts'
 import QrCode from '../components/QrCode.vue'
 import TransferFileItem from '../components/TransferFileItem.vue'
 import { useCountdown } from '../composables/useCountdown.ts'
 import { useTurnstile } from '../composables/useTurnstile.ts'
-import { uploadFileWithProgress } from '../composables/useUpload.ts'
+import { UnauthorizedError, uploadFileWithProgress } from '../composables/useUpload.ts'
 import { fileIconFor, formatFileSize } from '../format.ts'
 import { useAuthStore } from '../stores/auth.ts'
 import { useNotificationStore } from '../stores/notification.ts'
@@ -78,11 +78,21 @@ const downloadLink = computed(() =>
 const formatSize = formatFileSize
 const fileIcon = (file: File) => fileIconFor(file.name, file.type)
 
-onMounted(() => {
-  if (!isAuthenticated.value && googleButtonRef.value) {
-    auth.renderSignInButton(googleButtonRef.value)
-  }
-})
+// `immediate: true` covers both the initial "landed here unauthenticated" case and a later
+// false→true→false round trip — e.g. the session token expiring mid-upload (see `startUpload`'s
+// `UnauthorizedError` handling below), which signs the user out without a full page reload, so
+// this must re-render the button rather than only ever running once at mount.
+watch(
+  isAuthenticated,
+  async (authed) => {
+    if (authed) return
+    await nextTick()
+    if (googleButtonRef.value) {
+      auth.renderSignInButton(googleButtonRef.value)
+    }
+  },
+  { immediate: true },
+)
 
 const triggerFileDialog = () => fileInput.value?.click()
 
@@ -143,6 +153,11 @@ const startUpload = async () => {
       },
     })
     if (!created.ok) {
+      // `created.status`'s Hono RPC type only knows the literals this route's own handler
+      // declares (201/403) — a `401` here actually comes from the auth-guard middleware ahead of
+      // it (`app.ts`), which short-circuits before the handler runs and isn't part of its
+      // per-route response type. The cast just reflects that genuinely possible runtime value.
+      if ((created.status as number) === 401) throw new UnauthorizedError()
       throw new Error(
         created.status === 403
           ? 'ボット確認に失敗しました。もう一度お試しください。'
@@ -176,6 +191,16 @@ const startUpload = async () => {
     phase.value = 'complete'
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') return
+    if (error instanceof UnauthorizedError) {
+      await deleteTransferQuietly()
+      // Drops `isAuthenticated` to false, which both swaps the view back to the "login required"
+      // screen (see the top-level `v-if`) and re-renders the Google Sign-In button via the watch
+      // above — the expired token itself is already useless, so there's nothing to retry it with.
+      auth.signOut()
+      notification.show('セッションの有効期限が切れました。もう一度ログインしてください。')
+      phase.value = 'select'
+      return
+    }
     console.error('Upload failed:', error)
     notification.show(error instanceof Error ? error.message : 'アップロードに失敗しました')
     await deleteTransferQuietly()
