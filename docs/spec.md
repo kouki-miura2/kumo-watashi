@@ -2,10 +2,8 @@
 
 ## 1. 概要
 
-KUMO-WATASHIは、スマートフォンやPC間でファイルを一時的に転送するWebアプリケーションである。
-
-ファイルを永続保存するのではなく、Transfer Sessionを作成し、短時間だけクラウド上にファイルを保持する。
-
+KUMO-WATASHIは、スマートフォンやPC間でファイルを一時的に転送するWebアプリケーションである。  
+ファイルを永続保存するのではなく、Transfer Sessionを作成し、短時間だけクラウド上にファイルを保持する。  
 主な用途は以下である。
 
 - スマートフォン → スマートフォン
@@ -45,7 +43,8 @@ Uploader
    └── QRコード / ワンタイムコード表示
 ```
 
-Uploaderはファイルをダウンロードしない。
+Uploaderはファイルをダウンロードしない。  
+アップロードするためには「Googleでログイン」が必要。
 
 ### Downloader
 
@@ -87,9 +86,7 @@ Cloudflare R2
 Downloader
 ```
 
-UploaderとDownloaderの役割を固定することで、MVPではUI・API・認可モデルを単純化する。
-
-将来的に双方向転送が必要になった場合は、別の仕様として拡張する。
+UploaderとDownloaderの役割を固定することで、UI・API・認可モデルを単純化する。
 
 ## 2.3 アプリケーション構成
 
@@ -129,8 +126,7 @@ UploaderとDownloaderの役割を固定することで、MVPではUI・API・認
 └──────────────────────────┘
 ```
 
-「ファイルを送る」を選択するとUploaderへ遷移する。
-
+「ファイルを送る」を選択するとUploaderへ遷移する。  
 「ファイルを受け取る」を選択するとDownloaderへ遷移する。
 
 # 3. 対応する転送パターン
@@ -153,8 +149,7 @@ PC Uploader ──────────→ Smartphone Downloader
 PC Uploader ──────────→ PC Downloader
 ```
 
-QRコードを利用できる環境ではQRコードを利用する。
-
+QRコードを利用できる環境ではQRコードを利用する。  
 PC同士など、カメラでQRコードを読み取ることが難しい環境ではワンタイムコードを利用する。
 
 # 4. Transfer Session
@@ -185,10 +180,8 @@ COMPLETED
           └─────────┘
               ▲
               │
-       有効期限3分経過
+       有効期限N分経過
 ```
-
-MVPでは状態管理を最小限にしてもよい。
 
 重要なのは、
 
@@ -204,18 +197,17 @@ MVPでは状態管理を最小限にしてもよい。
 
 # 5. Transfer Sessionの有効期限
 
-Transfer Sessionの有効期限は、作成から3分とする。
+Transfer Sessionの有効期限は、作成からN分とする。
 
 ```text
 created_at
      │
-     │ 3 minutes
+     │ N minutes
      ▼
 expires_at
 ```
 
-有効期限を過ぎたTransfer SessionへのアクセスはWorker側で拒否する。
-
+有効期限を過ぎたTransfer SessionへのアクセスはWorker側で拒否する。  
 期限切れ時はHTTP 410 Goneなどを利用する。
 
 ## 5.1 削除
@@ -226,10 +218,8 @@ expires_at
 - D1のファイルメタデータ
 - R2のファイル本体
 
-を削除する。
-
-ただし、物理削除処理が多少遅延しても、Worker側ではexpires_atを確認して即座にアクセス拒否する。
-
+を削除する。  
+ただし、物理削除処理が多少遅延しても、Worker側ではexpires_atを確認して即座にアクセス拒否する。  
 したがって、
 
 > 論理的な有効期限
@@ -239,8 +229,6 @@ expires_at
 > 物理的な削除
 
 を分離する。
-
-Cloudflare Workers Cron等を利用して定期的に期限切れデータを削除する。
 
 ---
 
@@ -273,32 +261,38 @@ Transfer Session作成
 
 ## 7.1 Google Login
 
-Googleアカウントによる認証を利用する。
-
+Googleアカウントによる認証を利用する。  
 目的はユーザー管理ではなく、
 
 > 不特定多数からの無制限な利用を抑制するための利用者確認
 
 である。
 
-Googleアカウント情報を使った永続的なユーザー管理は行わない。
-
-Google ID TokenをWorkerで検証し、短時間のみ有効な認証セッションを発行する。
+Googleアカウント情報を使った永続的なユーザー管理（Userテーブル等でのプロフィール管理）は行わない。  
+Google ID TokenをWorkerで検証し、短時間のみ有効な認証セッションを発行する。  
+認証済みメールアドレスはログに記録する（詳細は8章を参照）。これはユーザー管理のためではなく、運営者が利用状況を把握するためである。
 
 ---
 
 # 8. Googleユーザー情報の保持
 
-原則として以下の情報は永続保存しない。
+## 8.1 D1（永続データベース）
+
+Transfer SessionおよびFileのメタデータ以外の永続テーブルは作成しない。以下の情報はD1に保存しない。
 
 - 氏名
-- メールアドレス
 - プロフィール画像
-- Googleアカウント情報
+- Googleアカウント情報全般
 
-不正利用対策のためGoogleの`sub`を利用する場合でも、必要最小限の期間・情報だけを保持する。
+本サービスの本質は一時的なファイル転送であり、Googleアカウントに紐づくユーザープロフィールを蓄積するデータベースを持たないことが目的である（24章参照）。
 
-Googleの`sub`そのものをデータベースに保存するのではなく、必要に応じてサーバー側秘密鍵を利用したHMAC等による匿名化識別子を利用する。
+## 8.2 ログ（アプリケーションログ）
+
+本サービスは小規模な運用を想定しており、運営者自身が「自分が使用しているのか」「利用を許可した第三者が使用しているのか」「許可していないユーザーが無断で使用しているのか」をログから即座に判別できる必要がある。
+
+そのため、認証済みメールアドレスは**匿名化せずそのままログに記録する**。Googleの`sub`をHMAC等で匿名化する処理は行わない。
+
+ログの保存期間は運用ポリシーとして別途定める（32章参照）。ログは障害解析・不正利用対策・利用状況把握のために保持するものであり、D1上の永続的なユーザープロフィールとは扱いが異なる。
 
 ---
 
@@ -320,10 +314,8 @@ Worker
 Cloudflare
 ```
 
-Turnstileの検証は必ずサーバー側で行う。
-
-MVPではTransfer Session作成時など、悪用されやすい操作を中心にTurnstileを適用する。
-
+Turnstileの検証は必ずサーバー側で行う。  
+Transfer Session作成時など、悪用されやすい操作を中心にTurnstileを適用する。  
 将来的にはリスクベースで適用範囲を調整する。
 
 ---
@@ -348,13 +340,13 @@ Google認証だけでは不正利用を完全には防止できないため、�
 
 Transfer Session単位でファイル数・ファイルサイズを制限する。
 
-MVPの初期値例：
+初期値例：
 
 ```text
-1 Transferあたり最大ファイル数: 20
+1 Transferあたり最大ファイル数: 5
 1ファイルあたり最大サイズ: 100MB
 1 Transferあたり最大合計サイズ: 500MB
-Transfer TTL: 3分
+Transfer TTL: 1分
 ```
 
 実際の値は運用状況を見て調整する。
@@ -379,8 +371,7 @@ QRコードにはTransfer Secretを含むURLを格納する。
 https://example.com/t/<transfer-secret>
 ```
 
-Transfer Secretは十分なエントロピーを持つランダム値とする。
-
+Transfer Secretは十分なエントロピーを持つランダム値とする。  
 D1にはSecretそのものを保存せず、ハッシュ値等を保存する。
 
 ---
@@ -392,22 +383,23 @@ QRコードを利用できない場合の参加方法として、人間が入力
 ## 13.1 コード仕様
 
 ```text
-英字2文字 + 数字6文字
+英字4文字 + 数字4文字（順序はランダム）
 合計8文字
 ```
 
-表示時には4文字ごとに区切る。
+英字4文字は8文字中のランダムな位置に出現する（先頭固定ではない）。これは、コードの構造（どの桁が英字か）が常に一定だと推測材料を与えてしまうためである。  
+表示時には4文字ごとに区切る（区切り位置は文字種とは無関係の表示上のグルーピング）。
 
 例：
 
 ```text
-K7M4-29Q8
+4A7T-R3C9
 ```
 
 入力時はハイフンを省略してもよい。
 
 ```text
-K7M429Q8
+4A7TR3C9
 ```
 
 内部では正規化して同一コードとして扱う。
@@ -416,15 +408,8 @@ K7M429Q8
 
 # 14. ワンタイムコードの文字集合
 
-英字は数字との誤読可能性が低い文字に限定する。
-
-候補：
-
-```text
-ABCDEFGHJKMNPQRSTUVWXYZ
-```
-
-以下のような誤読しやすい組み合わせを避ける。
+英字・数字のいずれも、互いに誤読しやすい文字は使用しない。  
+以下の誤読しやすい組み合わせを避ける。
 
 ```text
 I / 1
@@ -435,29 +420,36 @@ G / 6
 Z / 2
 ```
 
-最終的な文字集合は、実際のUIフォントで視認性を確認した上で確定する。
+最終的な文字集合：
+
+```text
+英字（20種類）: ACDEFHJKLMNPQRTUVWXY
+数字（4種類）:   3479
+```
+
+英字側は I, O, S, B, G, Z を除外し、数字側は 0, 1, 2, 5, 6, 8 を除外する。両方の文字集合を定数として定義し、生成時はそれ以外の文字を使用しない。
 
 ---
 
 # 15. ワンタイムコードのエントロピー
 
-例えば英字24種類と数字10種類の場合、
+8文字中どの4文字が英字になるかもランダムであるため、組み合わせ数は
 
 ```text
-24² × 10⁶
-= 576,000,000
+C(8,4) × 20⁴ × 4⁴
+= 70 × 160,000 × 256
+= 2,867,200,000
 ```
 
-となり、約5.76億通りの組み合わせとなる。
+となり、約28.7億通りの組み合わせとなる。
 
-ただし、ワンタイムコード単体を強固な秘密情報とはみなさない。
-
+ただし、ワンタイムコード単体を強固な秘密情報とはみなさない。  
 以下を組み合わせて安全性を確保する。
 
 ```text
 ワンタイムコード
       +
-3分TTL
+N分TTL
       +
 入力回数制限
       +
@@ -502,7 +494,7 @@ PC同士ではQRコードをカメラに表示して読み取らせることが�
 ┌─────────────────────────┐
 │       ファイルを転送      │
 │                         │
-│       K7M4-29Q8         │
+│       K7M4-X9Q8         │
 │                         │
 │  このコードを相手に入力   │
 │                         │
@@ -517,7 +509,7 @@ PC同士ではQRコードをカメラに表示して読み取らせることが�
 │      転送に参加する       │
 │                         │
 │     ┌─────────────┐     │
-│     │ K7M429Q8    │     │
+│     │ K7M4X9Q8    │     │
 │     └─────────────┘     │
 │                         │
 │       [参加する]         │
@@ -559,13 +551,9 @@ QRとコードで別々の転送処理を実装しない。
 │                          │
 │       KUMO-WATASHI       │
 │                          │
-│     ファイルを送る・受け取る │
+│   [ ファイルを送る ]      │
 │                          │
-│   [ 転送を開始する ]       │
-│                          │
-│   [ QRを読み取る ]         │
-│                          │
-│   [ コードで参加する ]      │
+│   [ ファイルを受け取る ]   │
 │                          │
 └──────────────────────────┘
 ```
@@ -580,7 +568,7 @@ Transfer Session作成後、QRとコードの両方を表示する。
 ┌──────────────────────────┐
 │       相手を招待          │
 │                          │
-│       K7M4-29Q8          │
+│       K7M4-X9Q8          │
 │                          │
 │       QRコード           │
 │      ██████████          │
@@ -598,7 +586,7 @@ QRを利用できる場合はQRを利用し、PC-PCなどではコード入力�
 
 # 21. Transfer Sessionへの参加
 
-DownloaderのみがTransfer Sessionへ参加する。
+DownloaderでTransfer Sessionへ参加する。
 
 ## QRの場合
 
@@ -670,59 +658,9 @@ D1にはTransfer Sessionおよびファイルメタデータのみを保存し�
 
 Uploaderはアップロードのみ、Downloaderはダウンロードのみを行う。
 
-# 23. R2へのアップロード
+# 23. D1データモデル
 
-可能な限りWorkerをファイル転送経路にせず、R2への直接アップロードを利用する。
-
-```text
-Browser
-   │
-   │ 1. Upload URL要求
-   ▼
-Worker
-   │
-   │ 2. 認証・権限確認
-   ▼
-Presigned URL
-   │
-   │ 3. PUT
-   ▼
-R2
-```
-
-これによりWorkerのリクエストボディ制限やCPU負荷を抑える。
-
----
-
-# 24. R2からのダウンロード
-
-ダウンロードも、可能であれば短時間有効なPresigned URLを利用する。
-
-```text
-Browser
-   │
-   │ Download要求
-   ▼
-Worker
-   │
-   ├── Session確認
-   ├── File確認
-   └── 有効期限確認
-   │
-   ▼
-短時間有効なDownload URL
-   │
-   ▼
-R2
-```
-
-Presigned URL自体もBearer Tokenとして扱い、必要以上に長い有効期限を設定しない。
-
----
-
-# 25. D1データモデル
-
-MVPでは以下のテーブルを基本とする。
+以下のテーブルを基本とする。
 
 ## transfer_sessions
 
@@ -751,9 +689,9 @@ created_at
 
 ---
 
-# 26. ユーザー管理
+# 24. ユーザー管理
 
-永続的なUserテーブルはMVPでは作成しない。
+永続的なUserテーブルは作成しない。
 
 ```text
 Google Account
@@ -765,14 +703,14 @@ Google Account
 Transfer Session
       │
       ▼
-3分で終了
+N分で終了
 ```
 
 このサービスの本質はユーザー管理ではなく、一時的なファイル転送であるためである。
 
 ---
 
-# 27. 認証セッション
+# 25. 認証セッション
 
 Google ID TokenをWorkerで検証後、短時間有効な認証セッションを発行する。
 
@@ -799,7 +737,7 @@ Transfer Session:        3分
 
 ---
 
-# 28. API構成
+# 26. API構成
 
 Cloudflare Workers + Honoを利用する。
 
@@ -812,19 +750,25 @@ POST /api/auth/google
 Google ID Tokenを検証し、短時間の認証セッションを発行する。
 
 ```text
+POST /api/client-id
+```
+
+Downloader用の匿名なクライアントIDを発行する（IP単位でRate Limit）。ワンタイムコード入力のRate Limitキーとして利用する。
+
+```text
 POST /api/transfers
 ```
 
-Uploader用のTransfer Sessionを作成する。
+Uploader用のTransfer Sessionを作成する。Turnstileトークンを検証する。
 
 ```text
 POST /api/transfers/:id/files
 ```
 
-Uploader用のアップロード対象ファイル登録・Upload URL発行などを行う。
+Uploader用のファイルをアップロードする（ファイル本体を含むmultipartリクエスト）。
 
 ```text
-GET /api/transfers/join/:token
+GET /api/transfers/join/:secret
 ```
 
 DownloaderがQRのTransfer Secretを利用してTransfer Sessionへ参加する。
@@ -833,7 +777,7 @@ DownloaderがQRのTransfer Secretを利用してTransfer Sessionへ参加する�
 POST /api/transfers/join
 ```
 
-DownloaderがワンタイムコードでTransfer Sessionへ参加する。
+DownloaderがワンタイムコードでTransfer Sessionへ参加する。クライアントIDとIPの組でRate Limitする。
 
 ```text
 GET /api/transfers/:id
@@ -848,12 +792,24 @@ GET /api/transfers/:id/files
 DownloaderがTransfer Session内のファイル一覧を取得する。
 
 ```text
-POST /api/files/:id/download
+GET /api/transfers/:id/files/:fileId/download
 ```
 
-Downloader用のダウンロードURLを発行する。
+Downloaderがファイル本体をダウンロードする。
 
-# 29. フロントエンド構成
+```text
+POST /api/transfers/:id/extend
+```
+
+Uploaderが自分のTransfer Sessionの有効期限を延長する。
+
+```text
+DELETE /api/transfers/:id
+```
+
+Uploaderが自分のTransfer Sessionを即座に削除する。
+
+# 27. フロントエンド構成
 
 Vue 3 + Composition API + TypeScriptを利用する。
 
@@ -907,7 +863,7 @@ Downloaderは以下の機能のみ提供する。
 
 Downloaderではアップロード機能を提供しない。
 
-# 30. バックエンド構成
+# 28. バックエンド構成
 
 ```text
 apps/
@@ -933,11 +889,10 @@ apps/
     └── wrangler.toml
 ```
 
-Uploader APIとDownloader APIを責務として分離する。
-
+Uploader APIとDownloader APIを責務として分離する。  
 ただし、Transfer Session・File Metadata・認証などの共通ドメインロジックは共有する。
 
-# 31. Cloudflare構成
+# 29. Cloudflare構成
 
 ```text
 Internet
@@ -953,27 +908,38 @@ Workers
     ▼               ▼
    D1               R2
 metadata         file body
+```
+
+期限切れTransfer Sessionの物理削除にCloudflare Workers Cronは使用しない。Free PlanのCronはリクエストあたりのCPU時間制限が厳しく、削除件数が不定な一括削除処理には向かないためである。  
+代わりに、通常のリクエスト処理の中でD1上のリースロック（1行のロックレコード）を奪い合い、獲得したリクエストだけが期限切れセッションの削除を実行する（他のリクエストは待たずにそのまま処理を続ける）「日和見的（opportunistic）クリーンアップ」を採用する。  
+論理的な期限切れ判定（`expires_at`確認）はWorker側で毎回行うため、物理削除が多少遅延してもアクセス拒否には影響しない（5.1章参照）。
+
+```text
+Workers（各リクエスト内）
     │
+    ├── D1のリースロックを取得できたら
+    │       │
+    │       ▼
+    │   期限切れSessionをD1・R2から削除
+    │       │
+    │       ▼
+    │   ロック解放
     │
-    ▼
-Cron
-cleanup
+    └── 取得できなければ何もせず次へ
 ```
 
 利用サービス：
 
 - Cloudflare Workers
-- Cloudflare D1
+- Cloudflare D1（Transfer Session・ファイルメタデータに加え、Rate Limitカウンターとクリーンアップ用リースロックも保持する）
 - Cloudflare R2
 - Cloudflare Turnstile
-- Cloudflare Workers Cron
-- 必要に応じてCloudflare Rate Limiting等
 
 ---
 
-# 32. 無料枠を前提としたMVP
+# 30. 無料枠を前提としたサービス
 
-MVPでは可能な限りCloudflareの無料枠内で構築する。
+Cloudflareの無料枠内で構築する。
 
 主な構成：
 
@@ -993,13 +959,12 @@ Cloudflare Workers
           └── R2
 ```
 
-ファイルを3分程度しか保持しないため、R2のストレージ使用量を抑えやすい。
-
+ファイルを1分程度しか保持しないため、R2のストレージ使用量を抑えやすい。  
 利用量が増えた場合は各サービスの利用量・制限を確認しながら有料プランへ移行する。
 
 ---
 
-# 33. セキュリティ原則
+# 31. セキュリティ原則
 
 ## Transfer Secret
 
@@ -1019,7 +984,6 @@ Cloudflare Workers
 
 - R2 Bucketを直接公開しない
 - Workerでアクセス権を確認する
-- Presigned URLは短時間のみ有効とする
 
 ## Session
 
@@ -1028,7 +992,7 @@ Cloudflare Workers
 
 ---
 
-# 34. プライバシー設計
+# 32. プライバシー設計
 
 本サービスはファイル転送を目的とし、ユーザーの永続的なプロフィール管理を行わない。
 
@@ -1044,229 +1008,12 @@ Google Account
 Transfer Session
       │
       ▼
-3分後に終了
+N分後に終了
 ```
 
-とする。
-
+とする。  
 ファイルはTransfer Sessionの有効期限経過後に削除する。
 
-ログについては、障害解析・不正利用対策に必要な情報だけを保持し、保存期間を別途定義する。
+ログについては、障害解析・不正利用対策・利用状況把握に必要な情報を保持し、保存期間を別途定義する。認証済みメールアドレスもこれに含まれ、匿名化は行わない（8.2章参照）。これはD1に永続的なユーザープロフィールを持たないという方針（8.1章、24章）とは別の話であり、「プロフィール管理をしない」ことと「運営者が利用状況をログで追跡できる」ことは両立する。
 
 ---
-
-# 35. MVPの優先順位
-
-## Phase 1
-
-Uploader / Downloaderによる基本的な一方向ファイル転送。
-
-```text
-Google Login
-   ↓
-Uploader
-   ↓
-Transfer作成
-   ↓
-ファイルUpload
-   ↓
-QR表示
-   ↓
-Downloader
-   ↓
-QR参加
-   ↓
-ファイルDownload
-   ↓
-3分TTL
-```
-
-## Phase 2
-
-ワンタイムコード。
-
-```text
-Uploader
-   ↓
-QR + Join Code
-   ↓
-Downloader
-   ↓
-コード入力
-   ↓
-Transfer参加
-   ↓
-Download
-```
-
-## Phase 3
-
-セキュリティ強化。
-
-```text
-Turnstile
-Rate Limit
-File Size Limit
-File Count Limit
-Total Size Limit
-```
-
-## Phase 4
-
-UX改善。
-
-```text
-転送進捗
-複数ファイル
-ドラッグ＆ドロップ
-スマホ向けUI改善
-```
-
-Uploader / Downloaderの責務分離はMVPから維持する。
-
-# 36. 将来的な拡張
-
-現在のMVPではUploader → Downloaderの一方向転送に限定する。
-
-将来的には以下を検討できる。
-
-- 複数端末によるダウンロード
-- 転送進捗のリアルタイム通知
-- ファイル単位の削除
-- 転送完了通知
-- QRコード再表示
-- Transfer Sessionの手動終了
-- WebSocket / Durable Objectsによるリアルタイム通知
-- PWA化
-- Capacitorによるネイティブアプリ化
-- 双方向転送
-
-ただし、双方向転送を導入する場合はUploader / Downloaderの責務やTransfer Sessionの状態モデルを再設計する。
-
-MVPではWebSocketやDurable Objectsなどを導入せず、HTTP API + pollingを基本とする。
-
-# 37. 最終アーキテクチャ
-
-```text
-                         Google
-                           │
-                           │ Authentication
-                           ▼
-                    ┌──────────────┐
-                    │   Browser    │
-                    │ Vue 3 SPA    │
-                    └──────┬───────┘
-                           │
-                    ┌──────┴──────┐
-                    │             │
-                    ▼             ▼
-               ┌─────────┐   ┌────────────┐
-               │ Uploader│   │ Downloader │
-               └────┬────┘   └──────┬─────┘
-                    │               │
-               Upload│               │Download
-                    │               │
-                    ▼               │
-                 Transfer Session   │
-                    │               │
-                    ▼               │
-               ┌───────────┐        │
-               │    R2     │◄───────┘
-               │ File Body │
-               └───────────┘
-                    ▲
-                    │
-              Metadata
-                    │
-               ┌────┴────┐
-               │   D1    │
-               └─────────┘
-
-                 Cloudflare Workers
-                       │
-             ┌─────────┼─────────┐
-             │         │         │
-            Auth    Transfer   Access
-                       API      Control
-             │         │
-          Turnstile   Rate Limit
-```
-
-## 転送フロー
-
-```text
-Uploader
-   │
-   ├── Google Login
-   ├── Turnstile
-   │
-   ▼
-Transfer Session作成
-   │
-   ▼
-R2へファイルUpload
-   │
-   ├── QR Code
-   └── One-Time Code
-          │
-          ▼
-      Downloader
-          │
-          ├── QR Scan
-          │      または
-          └── Code Input
-                 │
-                 ▼
-          Transfer Session参加
-                 │
-                 ▼
-            File Download
-                 │
-                 ▼
-              3分経過
-                 │
-                 ▼
-               Delete
-```
-
----
-
-# 38. 設計上の重要な判断
-
-本システムでは以下を基本方針とする。
-
-1. **UploaderとDownloaderをアプリとして分離する**
-2. **トップページでUploader / Downloaderを選択する**
-3. **UploaderはファイルアップロードとQR / ワンタイムコード表示に限定する**
-4. **DownloaderはQR / ワンタイムコードによる参加とファイルダウンロードに限定する**
-5. **Transfer Sessionをドメインの中心とする**
-6. **端末種別によってTransfer Sessionの処理を分けない**
-7. **QRとワンタイムコードは同じTransfer Sessionへの参加方法として扱う**
-8. **QR用SecretとJoin Codeは別の認証情報とする**
-9. **PC-PCではワンタイムコードを推奨する**
-10. **Google Loginはユーザー管理ではなく利用者確認・悪用抑制のために利用する**
-11. **TurnstileとRate Limitを組み合わせる**
-12. **R2はファイル本体、D1はメタデータに限定する**
-13. **ファイルは3分程度の短時間のみ保持する**
-14. **有効期限による論理削除と物理削除を分離する**
-15. **MVPではUploader → Downloaderの一方向転送とする**
-16. **MVPではHTTP API + pollingを基本とし、複雑なリアルタイム基盤を導入しない**
-17. **可能な限りCloudflare無料枠でMVPを構築する**
-
-# 38. 設計上の重要な判断
-
-本システムでは以下を基本方針とする。
-
-1. **UploaderとDownloaderをアプリとして分離しない**
-2. **Transfer Sessionをドメインの中心とする**
-3. **端末種別によって処理を分けない**
-4. **QRとワンタイムコードは同じTransfer Sessionへの参加方法として扱う**
-5. **QR用SecretとJoin Codeは別の認証情報とする**
-6. **PC-PCではワンタイムコードを推奨する**
-7. **Google Loginはユーザー管理ではなく利用者確認・悪用抑制のために利用する**
-8. **TurnstileとRate Limitを組み合わせる**
-9. **R2はファイル本体、D1はメタデータに限定する**
-10. **ファイルは3分程度の短時間のみ保持する**
-11. **有効期限による論理削除と物理削除を分離する**
-12. **MVPではHTTP API + pollingを基本とし、複雑なリアルタイム基盤を導入しない**
-13. **可能な限りCloudflare無料枠でMVPを構築する**

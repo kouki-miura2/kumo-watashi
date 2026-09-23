@@ -1,7 +1,7 @@
 # KUMO-WATASHI
 
 A web app for transferring files temporarily between smartphones and PCs. Files aren't stored
-permanently — a Transfer Session holds them in the cloud for a short window (3 minutes by
+permanently — a Transfer Session holds them in the cloud for a short window (1 minute by
 default). Files move one-way, from an Uploader (sender) to a Downloader (receiver), via a QR code
 or a one-time code. See [docs/spec.md](docs/spec.md) for the full spec.
 
@@ -72,6 +72,15 @@ vp run backend#test
 vp run backend#dev
 ```
 
+`wrangler dev` runs against a local D1 emulation (`.wrangler/state`), separate from the `--remote`
+database migrated during first-time setup below. Apply migrations there too before running for the
+first time, and again any time a new migration file is added:
+
+```bash
+cd apps/backend
+npx wrangler d1 migrations apply kumo-watashi --local
+```
+
 - Build (dry-run bundle):
 
 ```bash
@@ -110,13 +119,23 @@ npx wrangler r2 bucket create <your-bucket-name>
 # then copy the bucket name into wrangler.jsonc's r2_buckets[0].bucket_name
 
 npx wrangler secret put SESSION_SECRET          # paste a random value, e.g. `openssl rand -hex 32`
+npx wrangler secret put TURNSTILE_SECRET_KEY    # secret half of your own Turnstile widget, below
 ```
 
 Also set `wrangler.jsonc`'s `GOOGLE_CLIENT_ID` to your own OAuth client (Google Cloud Console →
 APIs & Services → Credentials → OAuth client ID → Web application) — the template's value is a
 placeholder, not a real default, since this project is OSS and shouldn't point every deployer at
-the original author's client. No other setup is needed unless the D1 database or R2 bucket are
-ever recreated, in which case update your local `wrangler.jsonc` and re-run the migration.
+the original author's client.
+
+Turnstile (docs/spec.md section 9) gates Transfer Session creation with a bot check. Create your
+own widget for your own domain(s) — Cloudflare dashboard → Turnstile → Add widget (managed mode),
+or `wrangler turnstile widget create` — then set `wrangler.jsonc`'s `TURNSTILE_SITE_KEY` (public)
+and `TURNSTILE_HOSTNAMES` (comma-separated, your frontend's domain(s)) to match, and the secret
+half via `wrangler secret put TURNSTILE_SECRET_KEY` above. A widget is pinned to the domain(s) it
+was registered for, so reusing the original author's wouldn't work even if you tried.
+
+No other setup is needed unless the D1 database or R2 bucket are ever recreated, in which case
+update your local `wrangler.jsonc` and re-run the migration.
 
 #### Deploy
 
@@ -187,14 +206,15 @@ separate deployment from `apps/backend`, with no D1/R2/secret bindings of its ow
 fall back to `index.html` (Vue Router uses `createWebHistory()`), so there's no separate SPA
 redirect file to maintain.
 
-Build with `VITE_API_BASE_URL` pointing at the deployed backend from the step above and your own
-`VITE_GOOGLE_CLIENT_ID` (see `.env.example` — there's no default, so Google Sign-In won't work
-without it), then deploy:
+Build with `VITE_API_BASE_URL` pointing at the deployed backend from the step above, your own
+`VITE_GOOGLE_CLIENT_ID`, and your own `VITE_TURNSTILE_SITE_KEY` (see `.env.example` — none of
+these have a default, so Google Sign-In / Transfer creation won't work without them), then deploy:
 
 ```bash
 cd apps/frontend
 VITE_API_BASE_URL=https://kumo-watashi-api.<your-subdomain>.workers.dev \
 VITE_GOOGLE_CLIENT_ID=<your-oauth-client-id>.apps.googleusercontent.com \
+VITE_TURNSTILE_SITE_KEY=<your-turnstile-site-key> \
 pnpm build
 pnpm deploy
 ```
