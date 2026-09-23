@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import QrScanner from 'qr-scanner'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { VOtpInput } from 'vuetify/components'
 
 import { apiClient } from '../api/client.ts'
+import QrScanner from '../components/QrScanner.vue'
+import TransferFileItem from '../components/TransferFileItem.vue'
+import { useCountdown } from '../composables/useCountdown.ts'
+import { downloadWithProgress, saveBlob } from '../composables/useDownload.ts'
 import { fileIconFor, formatFileSize } from '../format.ts'
 import { useNotificationStore } from '../stores/notification.ts'
 
@@ -32,33 +35,19 @@ const notification = useNotificationStore()
 const route = useRoute()
 
 const phase = ref<Phase>('scan')
-const isDetecting = ref(false)
-const videoRef = ref<HTMLVideoElement | null>(null)
-const cameraError = ref<string | null>(null)
-const hasFlash = ref(false)
-const flashOn = ref(false)
 const codePartA = ref('')
 const codePartB = ref('')
 const codePartBInput = ref<VOtpInput | null>(null)
+const scannerRef = ref<InstanceType<typeof QrScanner> | null>(null)
 const transferId = ref('')
 const joinCode = ref('')
 const senderLabel = ref('')
-const secondsRemaining = ref(0)
 const files = ref<ReceivedFile[]>([])
 
-let qrScanner: QrScanner | null = null
-let countdownTimer: ReturnType<typeof setInterval> | undefined
-let expiresAt = 0
-/** The TTL window's original length, captured when `expiresAt` is set — see the matching note in
- * UploaderView.vue. */
-let ttlMs = 0
 let downloadAbortController: AbortController | undefined
 
-const scanStatusText = computed(() => {
-  if (cameraError.value) return cameraError.value
-  if (isDetecting.value) return '読み取っています…'
-  return '送る人の画面の QR を枠に合わせる'
-})
+const { remainingLabel, remainingRatio, start: startCountdown } = useCountdown()
+
 const senderInitial = computed(() =>
   senderLabel.value ? senderLabel.value.charAt(0).toUpperCase() : '',
 )
@@ -86,14 +75,6 @@ watch(codePartB, (value) => {
  * doesn't auto-advance into the second the way a single OTP field would — move focus manually. */
 const focusSecondHalf = () => codePartBInput.value?.focus()
 const formattedJoinCode = computed(() => `${joinCode.value.slice(0, 4)}-${joinCode.value.slice(4)}`)
-const remainingLabel = computed(() => {
-  const m = Math.floor(secondsRemaining.value / 60)
-  const s = secondsRemaining.value % 60
-  return `${m}:${String(s).padStart(2, '0')}`
-})
-const remainingRatio = computed(() =>
-  ttlMs > 0 ? ((secondsRemaining.value * 1000) / ttlMs) * 100 : 0,
-)
 
 const doneCount = computed(() => selectedFiles.value.filter((f) => f.status === 'done').length)
 const downloadedSize = computed(() =>
@@ -109,22 +90,9 @@ const downloadComplete = computed(
 
 const formatSize = formatFileSize
 
-const startCountdown = () => {
-  if (countdownTimer) clearInterval(countdownTimer)
-  countdownTimer = setInterval(() => {
-    secondsRemaining.value = Math.max(0, Math.round((expiresAt - Date.now()) / 1000))
-    if (secondsRemaining.value === 0 && countdownTimer) {
-      clearInterval(countdownTimer)
-      countdownTimer = undefined
-    }
-  }, 1000)
-}
-
 const applySession = (session: TransferSessionView) => {
   transferId.value = session.id
   senderLabel.value = session.senderLabel
-  expiresAt = session.expiresAt
-  ttlMs = Math.max(1, session.expiresAt - Date.now())
   files.value = session.files.map((f) => ({
     id: f.id,
     name: f.filename,
@@ -135,17 +103,18 @@ const applySession = (session: TransferSessionView) => {
     status: 'pending',
     progress: 0,
   }))
-  secondsRemaining.value = Math.max(0, Math.round((expiresAt - Date.now()) / 1000))
+  startCountdown(session.expiresAt)
   phase.value = 'files'
-  startCountdown()
 }
 
 const reportJoinFailure = (status: number) => {
-  notification.show(
-    status === 410
-      ? 'この転送は有効期限が切れています'
-      : 'コードが見つかりません。もう一度お試しください',
-  )
+  if (status === 410) {
+    notification.show('この転送は有効期限が切れています')
+  } else if (status === 429) {
+    notification.show('試行回数が多すぎます。しばらく待ってからもう一度お試しください')
+  } else {
+    notification.show('コードが見つかりません。もう一度お試しください')
+  }
 }
 
 /** Downloader joins with either a human-typed code or a QR secret — never both — mirroring
@@ -172,71 +141,19 @@ const joinWithSecret = async (secret: string) => {
   return true
 }
 
-/** Pulls the QR secret out of whatever the camera decoded — either the bare secret or a
- * `.../downloader?secret=...`-style URL (native camera apps open the link directly, our own
- * scanner below extracts it manually). */
-const extractQrSecret = (data: string): string | null => {
-  try {
-    const fromQuery = new URL(data).searchParams.get('secret')
-    if (fromQuery) return fromQuery
-  } catch {
-    // Not a URL — fall through to treating the raw text as the secret itself.
-  }
-  const trimmed = data.trim()
-  return /^[0-9a-f]{64}$/i.test(trimmed) ? trimmed : null
+const handleDecoded = async (secret: string) => {
+  const joined = await joinWithSecret(secret)
+  if (!joined) await scannerRef.value?.start()
 }
 
-const handleScanResult = (data: string) => {
-  if (isDetecting.value) return
-  const secret = extractQrSecret(data)
-  if (!secret) return
-  isDetecting.value = true
-  stopScanning()
-  setTimeout(async () => {
-    isDetecting.value = false
-    const joined = await joinWithSecret(secret)
-    if (!joined) await startScanning()
-  }, 300)
-}
-
-const ensureScanner = () => {
-  if (qrScanner || !videoRef.value) return
-  qrScanner = new QrScanner(videoRef.value, (result) => handleScanResult(result.data), {
-    preferredCamera: 'environment',
-    maxScansPerSecond: 5,
-    returnDetailedScanResult: true,
-  })
-}
-
-const startScanning = async () => {
-  ensureScanner()
-  if (!qrScanner) return
-  cameraError.value = null
-  try {
-    await qrScanner.start()
-    hasFlash.value = await qrScanner.hasFlash()
-  } catch (error) {
-    console.error('Failed to start camera:', error)
-    cameraError.value = 'カメラを利用できません。コードを手入力してください。'
-  }
-}
-
-const stopScanning = () => {
-  qrScanner?.stop()
-}
-
-const toggleFlash = async () => {
-  if (!qrScanner || !hasFlash.value) return
-  await qrScanner.toggleFlash()
-  flashOn.value = qrScanner.isFlashOn()
-}
-
-watch(phase, async (next, previous) => {
+// If the user re-enters the scan screen from the code-entry one, the scanner component remounts
+// (`v-if="phase === 'scan'"`) but doesn't auto-start itself — see QrScanner.vue — so it needs
+// telling. The very first mount is handled by onMounted below instead, since a `watch` without
+// `immediate` doesn't fire for the initial value.
+watch(phase, async (next) => {
   if (next === 'scan') {
     await nextTick()
-    await startScanning()
-  } else if (previous === 'scan') {
-    stopScanning()
+    await scannerRef.value?.start()
   }
 })
 
@@ -244,10 +161,10 @@ onMounted(async () => {
   const secretFromQuery = route.query.secret
   if (typeof secretFromQuery === 'string' && secretFromQuery) {
     const joined = await joinWithSecret(secretFromQuery)
-    if (!joined) await startScanning()
+    if (!joined) await scannerRef.value?.start()
     return
   }
-  await startScanning()
+  await scannerRef.value?.start()
 })
 
 const submitCode = async () => {
@@ -269,38 +186,6 @@ const downloadUrl = (fileId: string): string =>
   apiClient.api.transfers[':id'].files[':fileId'].download
     .$url({ param: { id: transferId.value, fileId } })
     .toString()
-
-const saveBlob = (blob: Blob, filename: string) => {
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
-
-/** fetch + a manual read loop, not XHR, because it's the only way to both stream the body into a
- * Blob (rather than buffering the whole response before `onload`) and observe byte progress. */
-const downloadWithProgress = async (
-  url: string,
-  onProgress: (percent: number) => void,
-  signal: AbortSignal,
-): Promise<Blob> => {
-  const res = await fetch(url, { signal })
-  if (!res.ok || !res.body) throw new Error('ダウンロードに失敗しました')
-  const total = Number(res.headers.get('Content-Length') ?? 0)
-  const reader = res.body.getReader()
-  const chunks: BlobPart[] = []
-  let loaded = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-    loaded += value.length
-    if (total > 0) onProgress(Math.round((loaded / total) * 100))
-  }
-  return new Blob(chunks)
-}
 
 const downloadSingle = async (file: ReceivedFile) => {
   if (file.status !== 'pending') return
@@ -369,64 +254,14 @@ const cancelDownload = () => {
 }
 
 onUnmounted(() => {
-  qrScanner?.destroy()
-  qrScanner = null
   downloadAbortController?.abort()
-  if (countdownTimer) clearInterval(countdownTimer)
 })
 </script>
 
 <template>
   <v-container class="py-8" style="max-width: 640px">
     <div v-if="phase === 'scan'" class="d-flex flex-column ga-6">
-      <v-card color="#0E1B24" theme="dark" rounded="lg" class="pa-6 d-flex flex-column ga-8">
-        <div class="d-flex align-center ga-3">
-          <v-btn icon="mdi-close" variant="text" to="/" />
-          <span class="text-body-1 font-weight-medium flex-grow-1">QR を読み取る</span>
-          <v-btn
-            :icon="flashOn ? 'mdi-flashlight-off' : 'mdi-flashlight'"
-            variant="text"
-            :disabled="!hasFlash"
-            @click="toggleFlash"
-          />
-        </div>
-
-        <div class="flex-grow-1 d-flex flex-column align-center justify-center ga-8 py-8">
-          <div class="viewfinder" :class="{ 'viewfinder--active': isDetecting }">
-            <video ref="videoRef" class="viewfinder__video" muted playsinline />
-            <template v-if="!cameraError">
-              <span class="viewfinder__corner viewfinder__corner--tl" />
-              <span class="viewfinder__corner viewfinder__corner--tr" />
-              <span class="viewfinder__corner viewfinder__corner--bl" />
-              <span class="viewfinder__corner viewfinder__corner--br" />
-              <span class="viewfinder__line" />
-            </template>
-            <div v-else class="viewfinder__fallback">
-              <v-icon icon="mdi-camera-off-outline" size="40" />
-            </div>
-          </div>
-          <div class="d-flex flex-column align-center ga-2 text-center">
-            <span class="text-body-1">{{ scanStatusText }}</span>
-            <span class="text-caption" style="opacity: 0.7"
-              >読み取ると自動でファイル一覧に進みます</span
-            >
-          </div>
-        </div>
-
-        <div class="d-flex flex-column ga-3">
-          <v-btn
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-form-textbox"
-            text="コードを手入力する"
-            @click="phase = 'code'"
-          />
-          <div class="d-flex align-center justify-center ga-2" style="opacity: 0.7">
-            <v-icon icon="mdi-lock-outline" size="16" />
-            <span class="text-caption">受け取りにログインは不要です</span>
-          </div>
-        </div>
-      </v-card>
+      <QrScanner ref="scannerRef" @decoded="handleDecoded" @manual-entry="phase = 'code'" />
     </div>
 
     <div v-else-if="phase === 'code'" class="d-flex flex-column ga-6">
@@ -598,30 +433,13 @@ onUnmounted(() => {
         <v-list density="comfortable">
           <template v-for="(f, i) in selectedFiles" :key="f.id">
             <v-divider v-if="i > 0" />
-            <v-list-item :class="{ 'opacity-55': f.status === 'pending' }">
-              <template #prepend>
-                <v-icon
-                  :icon="
-                    f.status === 'done'
-                      ? 'mdi-check-circle'
-                      : f.status === 'downloading'
-                        ? f.icon
-                        : 'mdi-clock-outline'
-                  "
-                  :color="f.status === 'pending' ? 'grey' : 'primary'"
-                />
-              </template>
-              <v-list-item-title>{{ f.name }}</v-list-item-title>
-              <v-list-item-subtitle v-if="f.status === 'done'">保存しました</v-list-item-subtitle>
-              <v-list-item-subtitle v-else-if="f.status === 'pending'">待機中</v-list-item-subtitle>
-              <v-progress-linear
-                v-else
-                :model-value="f.progress"
-                color="primary"
-                height="4"
-                rounded
-                class="mt-1"
-              />
+            <TransferFileItem
+              :name="f.name"
+              :icon="f.icon"
+              :status="f.status === 'downloading' ? 'active' : f.status"
+              :progress="f.progress"
+              done-label="保存しました"
+            >
               <template #append>
                 <span v-if="f.status === 'downloading'" class="text-caption mono"
                   >{{ Math.round(f.progress) }}%</span
@@ -633,7 +451,7 @@ onUnmounted(() => {
                   size="small"
                 />
               </template>
-            </v-list-item>
+            </TransferFileItem>
           </template>
         </v-list>
       </v-card>
@@ -663,99 +481,5 @@ onUnmounted(() => {
 <style scoped>
 .mono {
   font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
-}
-
-.opacity-55 {
-  opacity: 0.55;
-}
-
-.viewfinder {
-  position: relative;
-  width: 220px;
-  height: 220px;
-  overflow: hidden;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.06);
-  transition: transform 0.15s;
-}
-
-.viewfinder--active {
-  transform: scale(0.97);
-}
-
-.viewfinder__video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.viewfinder__fallback {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.viewfinder__corner {
-  position: absolute;
-  width: 40px;
-  height: 40px;
-  border: 3px solid #fff;
-}
-
-.viewfinder__corner--tl {
-  top: 0;
-  left: 0;
-  border-right: none;
-  border-bottom: none;
-  border-radius: 20px 0 0 0;
-}
-
-.viewfinder__corner--tr {
-  top: 0;
-  right: 0;
-  border-left: none;
-  border-bottom: none;
-  border-radius: 0 20px 0 0;
-}
-
-.viewfinder__corner--bl {
-  bottom: 0;
-  left: 0;
-  border-right: none;
-  border-top: none;
-  border-radius: 0 0 0 20px;
-}
-
-.viewfinder__corner--br {
-  bottom: 0;
-  right: 0;
-  border-left: none;
-  border-top: none;
-  border-radius: 0 0 20px 0;
-}
-
-.viewfinder__line {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  top: 10%;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.7);
-  animation: scan-move 1.6s ease-in-out infinite;
-}
-
-@keyframes scan-move {
-  0%,
-  100% {
-    top: 10%;
-  }
-  50% {
-    top: 88%;
-  }
 }
 </style>

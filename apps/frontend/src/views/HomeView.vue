@@ -3,9 +3,9 @@
 <template>
   <v-container class="d-flex flex-column align-center ga-8 py-8 py-md-16">
     <div class="w-100" style="max-width: 640px">
-      <h1 class="text-h4 font-weight-bold mb-2">ファイルを転送する</h1>
+      <h1 class="text-h4 font-weight-bold">ファイルを転送する</h1>
       <p class="text-body-1 text-medium-emphasis">
-        3分だけクラウドに預け、期限が来たら自動で消えます。PC 同士はワンタイムコードが便利です。
+        1分だけクラウドに預け、期限が来たら自動で消えます。
       </p>
     </div>
 
@@ -74,10 +74,10 @@
 
     <div class="d-flex flex-wrap justify-start ga-2 w-100" style="max-width: 640px">
       <v-chip prepend-icon="mdi-timer-sand" variant="flat" color="grey-lighten-3"
-        >3分で自動削除</v-chip
+        >1分で自動削除</v-chip
       >
       <v-chip prepend-icon="mdi-file-multiple-outline" variant="flat" color="grey-lighten-3"
-        >最大20ファイル / 1件100MB</v-chip
+        >最大5ファイル / 1件100MB</v-chip
       >
       <v-chip prepend-icon="mdi-database-outline" variant="flat" color="grey-lighten-3"
         >合計500MB</v-chip
