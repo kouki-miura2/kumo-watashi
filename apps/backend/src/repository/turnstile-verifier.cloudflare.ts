@@ -11,6 +11,7 @@ interface SiteverifyResponse {
   success?: boolean
   action?: string
   hostname?: string
+  'error-codes'?: string[]
 }
 
 /** Calls Cloudflare's real siteverify endpoint (docs/spec.md section 9). `expectedHostnames`
@@ -42,9 +43,26 @@ export const createTurnstileVerifier = (
       return false
     }
 
-    if (!result.success) return false
-    if (result.action !== CREATE_TRANSFER_ACTION) return false
+    // Every branch below fails closed silently otherwise — none of these fields are secret
+    // (unlike `secretKey`/`token`), and this is the only way to tell a wrong/stale
+    // `TURNSTILE_SECRET_KEY` (`error-codes` includes `invalid-input-secret`) apart from an
+    // action/hostname misconfiguration from `wrangler tail`.
+    if (!result.success) {
+      console.error('Turnstile siteverify rejected the token', result['error-codes'])
+      return false
+    }
+    if (result.action !== CREATE_TRANSFER_ACTION) {
+      console.error('Turnstile action mismatch', {
+        expected: CREATE_TRANSFER_ACTION,
+        actual: result.action,
+      })
+      return false
+    }
     if (expectedHostnames.length > 0 && !expectedHostnames.includes(result.hostname ?? '')) {
+      console.error('Turnstile hostname mismatch', {
+        expected: expectedHostnames,
+        actual: result.hostname,
+      })
       return false
     }
     return true

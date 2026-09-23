@@ -47,6 +47,19 @@ test('rejects when siteverify reports failure', async () => {
   vi.unstubAllGlobals()
 })
 
+test('logs the error-codes when siteverify reports failure — otherwise a wrong TURNSTILE_SECRET_KEY is indistinguishable from any other rejection', async () => {
+  vi.stubGlobal('fetch', mockFetch({ success: false, 'error-codes': ['invalid-input-secret'] }))
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  const verifier = createTurnstileVerifier('secret', [])
+
+  await verifier.verify('a-token', undefined)
+
+  expect(errorSpy).toHaveBeenCalledWith(expect.any(String), ['invalid-input-secret'])
+
+  errorSpy.mockRestore()
+  vi.unstubAllGlobals()
+})
+
 test('rejects a token solved for a different action', async () => {
   vi.stubGlobal(
     'fetch',
