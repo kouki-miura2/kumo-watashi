@@ -1,16 +1,26 @@
-const pad = (value: number, length = 2): string => String(value).padStart(length, '0')
+import { toWallClock } from './zone.ts'
 
-const tokenValues: Record<string, (date: Date) => string> = {
-  yyyy: (date) => String(date.getFullYear()),
-  MM: (date) => pad(date.getMonth() + 1),
-  dd: (date) => pad(date.getDate()),
-  HH: (date) => pad(date.getHours()),
-  mm: (date) => pad(date.getMinutes()),
-  ss: (date) => pad(date.getSeconds()),
+const pad = (value: number): string => String(value).padStart(2, '0')
+
+const tokenValues: Record<string, (wall: Date) => string> = {
+  yyyy: (wall) => String(wall.getUTCFullYear()),
+  MM: (wall) => pad(wall.getUTCMonth() + 1),
+  M: (wall) => String(wall.getUTCMonth() + 1),
+  dd: (wall) => pad(wall.getUTCDate()),
+  d: (wall) => String(wall.getUTCDate()),
+  HH: (wall) => pad(wall.getUTCHours()),
+  mm: (wall) => pad(wall.getUTCMinutes()),
+  ss: (wall) => pad(wall.getUTCSeconds()),
 }
 
-const tokenPattern = /yyyy|MM|dd|HH|mm|ss/g
+const tokenPattern = /yyyy|MM|M|dd|d|HH|mm|ss/g
 
-/** Formats a `Date` using `yyyy`/`MM`/`dd`/`HH`/`mm`/`ss` tokens. Default pattern: `yyyy-MM-dd`. */
-export const formatDate = (date: Date, pattern = 'yyyy-MM-dd'): string =>
-  pattern.replace(tokenPattern, (token) => tokenValues[token](date))
+/**
+ * Formats `date` in the app's time zone (`TIME_ZONE_OFFSET_MINUTES`) using `yyyy`/`MM`/`dd`/`HH`/`mm`/`ss`
+ * tokens, plus unpadded `M`/`d` (e.g. `M/d` → `9/29`). The default pattern `yyyy-MM-dd` is also
+ * the format to store a calendar date in.
+ */
+export const formatDate = (date: Date, pattern = 'yyyy-MM-dd'): string => {
+  const wall = toWallClock(date)
+  return pattern.replace(tokenPattern, (token) => tokenValues[token](wall))
+}
