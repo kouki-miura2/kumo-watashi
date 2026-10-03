@@ -1,8 +1,17 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "kumo-watashi-api",
+  "name": "kumo-watashi",
   "main": "src/worker.ts",
   "compatibility_date": "2026-09-11",
+  // One origin: the frontend build is served as static assets at `/`, the API at `/api`.
+  // `deploy` and `vp run -t backend-worker#build` build the frontend first.
+  "assets": {
+    "directory": "../frontend/dist",
+    // Unknown paths fall back to index.html so vue-router's history mode works on reload.
+    "not_found_handling": "single-page-application",
+    // Without this, the SPA fallback would answer unknown `/api/*` paths with index.html.
+    "run_worker_first": ["/api/*"],
+  },
   "observability": {
     "enabled": true,
   },
@@ -21,10 +30,9 @@
   "vars": {
     "GOOGLE_CLIENT_ID": "<your-oauth-client-id>.apps.googleusercontent.com",
     "TURNSTILE_SITE_KEY": "<your-turnstile-site-key>",
-    "TURNSTILE_HOSTNAMES": "<your-frontend-domain>",
+    "TURNSTILE_HOSTNAMES": "<your-app-domain>",
   },
-  // Transfer Session + file metadata (docs/spec.md section 23). Durable across isolates, unlike
-  // the in-memory DAO the Node build still uses — see dao/transfer.d1.ts.
+  // Transfer Session + file metadata (docs/spec.md section 23) — see src/dao/transfer.d1.ts.
   //
   // Copy this file to `wrangler.jsonc` (gitignored, since this repo is public) and fill in the
   // real database_name/database_id/bucket_name from `npx wrangler d1 create <name>` and

@@ -18,6 +18,12 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['vuetify'],
   },
+  // Same layout as production: frontend at `/`, backend at `/api` (backend dev server on 8787).
+  server: {
+    proxy: {
+      '/api': 'http://localhost:8787',
+    },
+  },
   lint: {
     options: {
       typeAware: true,

@@ -10,7 +10,7 @@ description: Add a new API endpoint to apps/backend, following the app.ts -> ser
 ```
 route (src/app.ts) -> service (src/service/*.service.ts)
                     -> repository (src/repository/*.repository.ts)
-                    -> dao (src/dao/*.interface.ts + *.memory.ts / *.d1.ts / *.node-pg.ts / ...)
+                    -> dao (src/dao/*.interface.ts; concrete *.d1.ts in apps/backend-worker)
 ```
 
 - A **route** depends only on a service. No business logic or datastore access in `app.ts`.
@@ -18,9 +18,8 @@ route (src/app.ts) -> service (src/service/*.service.ts)
   layer that decides outcomes like "not found" / validation. It knows nothing about HTTP.
 - A **repository** maps a DAO's raw storage shape to a domain entity. No datastore access here
   either — that's the DAO's job.
-- A **dao** is the only layer that talks to a datastore, behind an interface, so different
-  runtimes (Workers vs Node) can swap in different concrete DAOs without touching
-  service/repository/route code.
+- A **dao** is the only layer that talks to a datastore, behind an interface, so tests can
+  swap in fakes without touching service/repository/route code.
 
 No route exists in this project yet, so there's no worked example to copy — follow the shape
 below for the first one.
@@ -34,10 +33,12 @@ Replace `<name>` below with the resource name (e.g. `widget`).
 
 - `src/dao/<name>.interface.ts` — the raw storage type (`<Name>Record`) and the `<Name>Dao`
   interface (the methods this endpoint needs, e.g. `findById`).
-- `src/dao/<name>.memory.ts` — a concrete in-memory implementation (`create<Name>Dao`). Add a
-  real implementation (`.d1.ts`, `.node-pg.ts`, ...) alongside it when/if a real datastore is
-  needed.
-- `src/dao/<name>.memory.test.ts` — co-located test for the concrete DAO.
+- `apps/backend-worker/src/dao/<name>.d1.ts` — the concrete D1 implementation
+  (`create<Name>Dao(db)`), importing the interface from `backend/src/dao/<name>.interface.ts`,
+  plus a migration under `apps/backend-worker/migrations/` for any new table. Workers-only code
+  never goes in `apps/backend`.
+- `apps/backend-worker/src/dao/<name>.d1.test.ts` — co-located test for the concrete DAO (see
+  `transfer.d1.test.ts` there for faking `D1Database`).
 
 ### 2. Repository layer
 
@@ -45,7 +46,7 @@ Replace `<name>` below with the resource name (e.g. `widget`).
   `<Name>Repository` interface, and `create<Name>Repository(dao)` mapping the DAO's raw record to
   the domain entity.
 - `src/repository/<name>.repository.test.ts` — co-located test, using a hand-written fake
-  `<Name>Dao` (not the real `.memory` implementation) so the test only exercises the repository's
+  `<Name>Dao` (not the real `.d1` implementation) so the test only exercises the repository's
   mapping logic.
 
 ### 3. Service layer
@@ -71,14 +72,13 @@ Replace `<name>` below with the resource name (e.g. `widget`).
 
 ### 5. Wire real dependencies
 
-- Update `src/worker.ts` and/or `src/server.ts` (whichever runtime(s) this project deploys) to
-  construct the real dao -> repository -> service chain and pass it into `createApp`.
+- Update `apps/backend-worker/src/worker.ts` to construct the real dao -> repository -> service chain and pass it into `createApp`.
 
 ### 6. Validate
 
 ```bash
 vp check   # format, lint, type check
-vp test    # or: vp run backend#test
+vp test    # or: vp run backend#test (and backend-worker#test for a new .d1.ts)
 ```
 
 ## Notes

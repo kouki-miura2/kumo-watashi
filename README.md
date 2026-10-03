@@ -5,12 +5,27 @@ permanently — a Transfer Session holds them in the cloud for a short window (1
 default). Files move one-way, from an Uploader (sender) to a Downloader (receiver), via a QR code
 or a one-time code. See [docs/spec.md](docs/spec.md) for the full spec.
 
-A Vite+ monorepo made up of `apps/backend`, `apps/frontend`, and `packages/utils`. `apps/backend`
-is a Hono API (deployable to Cloudflare Workers, or standalone as a Node.js server); `apps/frontend`
-is a Vue 3 + Vuetify 4 client that talks to it over Hono RPC (typed requests/responses, no manual
-shared-types package needed). `packages/utils` holds runtime-agnostic code shared by both.
+A Vite+ monorepo made up of `apps/backend`, `apps/backend-worker`, `apps/frontend`, and
+`packages/utils`. `apps/backend` is a runtime-agnostic Hono API, run on Cloudflare Workers by
+`apps/backend-worker`; `apps/frontend` is a Vue 3 + Vuetify 4 client that talks to it over Hono
+RPC (typed requests/responses, no manual shared-types package needed). `packages/utils` holds
+runtime-agnostic code shared by both.
 
 ## Development
+
+The frontend is served at `/` and the API at `/api` on the same origin, in development and in
+production. Run both dev servers and open the frontend's URL; it proxies `/api` to the backend
+(`localhost:8787`):
+
+```bash
+vp run dev-b   # backend
+vp run dev-f   # frontend
+```
+
+In production, one Worker (`apps/backend-worker`) serves both: the API at `/api` and the frontend
+build as static assets at `/`. It lists `frontend` as a workspace dependency, so `vp run -r build`
+(or `vp run -t backend-worker#build`) builds the frontend once, before it; `deploy` builds the
+frontend itself.
 
 - Check everything is ready:
 
@@ -46,11 +61,7 @@ vp run utils#test
 
 ## apps/backend
 
-Deployable to Cloudflare Workers or as a standalone Node.js server. Pick the runtime section(s) a given project needs.
-
-Script naming: no suffix = common (runtime-agnostic) or Cloudflare Workers, `:node` suffix = Node.js.
-
-### Common
+Runtime-agnostic routes and business logic. Run it through `apps/backend-worker`.
 
 - Run format/lint/type checks:
 
@@ -64,12 +75,27 @@ vp run backend#check
 vp run backend#test
 ```
 
-### Cloudflare Workers
+## apps/backend-worker
 
-- Debug locally:
+Runs `apps/backend` on Cloudflare Workers, and serves the `apps/frontend` build from the same
+Worker.
+
+- Run format/lint/type checks:
 
 ```bash
-vp run backend#dev
+vp run backend-worker#check
+```
+
+- Run the tests (D1/R2 implementations):
+
+```bash
+vp run backend-worker#test
+```
+
+- Debug locally (reloads on changes in `apps/backend` too):
+
+```bash
+vp run backend-worker#dev
 ```
 
 `wrangler dev` runs against a local D1 emulation (`.wrangler/state`), separate from the `--remote`
@@ -77,32 +103,32 @@ database migrated during first-time setup below. Apply migrations there too befo
 first time, and again any time a new migration file is added:
 
 ```bash
-cd apps/backend
+cd apps/backend-worker
 npx wrangler d1 migrations apply kumo-watashi --local
 ```
 
-- Build (dry-run bundle):
+- Build (frontend + dry-run Worker bundle):
 
 ```bash
-vp run backend#build
+vp run -t backend-worker#build
 ```
 
 - Regenerate Workers binding types (after changing `wrangler.jsonc`'s bindings):
 
 ```bash
-vp run backend#cf-typegen
+vp run backend-worker#cf-typegen
 ```
 
-#### First-time deploy setup
+### First-time deploy setup
 
 Transfer Sessions/files use D1 (metadata) + R2 (file bodies) for durability across Workers
-isolates — see `dao/transfer.d1.ts` / `repository/file-blob-store.r2.ts`. `wrangler.jsonc` is
-gitignored (this repo is public, and its D1 `database_id`/R2 `bucket_name` are this project's own
-account-specific identifiers — see `.claude/skills/check-secrets`); copy the committed template
-and fill in real values as you create each resource:
+isolates — see `src/dao/transfer.d1.ts` / `src/repository/file-blob-store.r2.ts`. `wrangler.jsonc`
+is gitignored (this repo is public, and its D1 `database_id`/R2 `bucket_name` are this project's
+own account-specific identifiers — see `.claude/skills/check-secrets`); copy the committed
+template and fill in real values as you create each resource:
 
 ```bash
-cd apps/backend
+cd apps/backend-worker
 cp wrangler.jsonc.example wrangler.jsonc
 
 npx wrangler login                              # authenticate this machine
@@ -130,41 +156,30 @@ the original author's client.
 Turnstile (docs/spec.md section 9) gates Transfer Session creation with a bot check. Create your
 own widget for your own domain(s) — Cloudflare dashboard → Turnstile → Add widget (managed mode),
 or `wrangler turnstile widget create` — then set `wrangler.jsonc`'s `TURNSTILE_SITE_KEY` (public)
-and `TURNSTILE_HOSTNAMES` (comma-separated, your frontend's domain(s)) to match, and the secret
-half via `wrangler secret put TURNSTILE_SECRET_KEY` above. A widget is pinned to the domain(s) it
-was registered for, so reusing the original author's wouldn't work even if you tried.
+and `TURNSTILE_HOSTNAMES` (comma-separated, the app's domain(s)) to match, and the secret half via
+`wrangler secret put TURNSTILE_SECRET_KEY` above. A widget is pinned to the domain(s) it was
+registered for, so reusing the original author's wouldn't work even if you tried.
+
+The frontend build also needs your own `VITE_GOOGLE_CLIENT_ID` and `VITE_TURNSTILE_SITE_KEY` in
+`apps/frontend/.env` (see `apps/frontend/.env.example` — neither has a default, so Google Sign-In
+/ Transfer creation won't work without them). No API URL is needed: the frontend calls `/api` on
+its own origin.
 
 No other setup is needed unless the D1 database or R2 bucket are ever recreated, in which case
 update your local `wrangler.jsonc` and re-run the migration.
 
-#### Deploy
+### Deploy
+
+Builds the frontend, then deploys it and the API as one Worker:
 
 ```bash
-vp run backend#deploy
+vp run backend-worker#deploy
 ```
 
-Prints the deployed URL (e.g. `https://kumo-watashi-api.<your-subdomain>.workers.dev`) — this is
-`VITE_API_BASE_URL` for the frontend build below.
-
-### Node.js
-
-- Debug locally (hot reload):
-
-```bash
-vp run backend#dev:node
-```
-
-- Build:
-
-```bash
-vp run backend#build:node
-```
-
-- Run the built bundle:
-
-```bash
-vp run backend#start:node
-```
+Prints the deployed URL (e.g. `https://kumo-watashi.<your-subdomain>.workers.dev`). On a new
+deployment, add that URL to the OAuth client's authorized JavaScript origins in
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials), and its hostname to
+`wrangler.jsonc`'s `TURNSTILE_HOSTNAMES`.
 
 ## apps/frontend
 
@@ -180,7 +195,7 @@ vp run frontend#check
 vp run frontend#test
 ```
 
-- Run the dev server:
+- Run the dev server (proxies `/api` to `vp run backend-worker#dev`):
 
 ```bash
 vp run frontend#dev
@@ -197,28 +212,3 @@ vp run frontend#build
 ```bash
 vp run frontend#preview
 ```
-
-### Deploy (Cloudflare Workers static assets)
-
-Served as its own Worker (`apps/frontend/wrangler.jsonc`, `assets.directory: ./dist`) — a
-separate deployment from `apps/backend`, with no D1/R2/secret bindings of its own. `assets`'s
-`not_found_handling: single-page-application` makes direct loads of routes like `/downloader`
-fall back to `index.html` (Vue Router uses `createWebHistory()`), so there's no separate SPA
-redirect file to maintain.
-
-Build with `VITE_API_BASE_URL` pointing at the deployed backend from the step above, your own
-`VITE_GOOGLE_CLIENT_ID`, and your own `VITE_TURNSTILE_SITE_KEY` (see `.env.example` — none of
-these have a default, so Google Sign-In / Transfer creation won't work without them), then deploy:
-
-```bash
-cd apps/frontend
-VITE_API_BASE_URL=https://kumo-watashi-api.<your-subdomain>.workers.dev \
-VITE_GOOGLE_CLIENT_ID=<your-oauth-client-id>.apps.googleusercontent.com \
-VITE_TURNSTILE_SITE_KEY=<your-turnstile-site-key> \
-pnpm build
-pnpm deploy
-```
-
-Prints the deployed URL (e.g. `https://kumo-watashi.<your-subdomain>.workers.dev`). Add that URL
-to the OAuth client's authorized JavaScript origins in
-[Google Cloud Console](https://console.cloud.google.com/apis/credentials).

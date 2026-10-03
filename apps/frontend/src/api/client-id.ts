@@ -24,7 +24,7 @@ const writeStorage = (value: string): void => {
  * backend's rate limit on (IP, client id) instead of IP alone, so one user's failed attempts
  * don't throttle everyone else behind the same NAT/proxy. Uses a bare `fetch`, not `apiClient`,
  * so it never recurses back into `apiClient`'s own header-injection logic. */
-export const getClientId = async (baseUrl: string): Promise<string> => {
+export const getClientId = async (): Promise<string> => {
   if (cached) return cached
 
   const fromStorage = readStorage()
@@ -33,7 +33,7 @@ export const getClientId = async (baseUrl: string): Promise<string> => {
     return fromStorage
   }
 
-  const res = await fetch(`${baseUrl}/api/client-id`, { method: 'POST' })
+  const res = await fetch('/api/client-id', { method: 'POST' })
   if (!res.ok) throw new Error(`failed to obtain client id: ${res.status}`)
   const { clientId } = (await res.json()) as { clientId: string }
 

@@ -1,7 +1,6 @@
-import type { FileBlobStore } from './file-blob-store.interface.ts'
+import type { FileBlobStore } from 'backend/src/repository/file-blob-store.interface.ts'
 
-/** Cloudflare R2 implementation (docs/spec.md section 22/23) — durable across isolates, unlike
- * `file-blob-store.memory.ts`. Objects are keyed by the file id alone; no bucket prefix needed
+/** Cloudflare R2 implementation (docs/spec.md section 22/23) — durable across isolates. Objects are keyed by the file id alone; no bucket prefix needed
  * since ids are already globally unique (`crypto.randomUUID()`). */
 export const createFileBlobStore = (bucket: R2Bucket): FileBlobStore => ({
   put: async (key, bytes) => {

@@ -2,7 +2,7 @@ import type {
   TransferDao,
   TransferFileRecord,
   TransferSessionRecord,
-} from './transfer.interface.ts'
+} from 'backend/src/dao/transfer.interface.ts'
 
 interface SessionRow {
   id: string
@@ -29,7 +29,7 @@ const toFileRecord = (row: FileRow): TransferFileRecord => ({
 })
 
 /** Cloudflare D1 implementation (docs/spec.md section 23) — metadata only, durable across
- * isolates unlike `transfer.memory.ts`. File bodies live separately in R2, see
+ * isolates. File bodies live separately in R2, see
  * `repository/file-blob-store.r2.ts`. */
 export const createTransferDao = (db: D1Database): TransferDao => {
   const loadFiles = async (transferId: string): Promise<TransferFileRecord[]> => {

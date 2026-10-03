@@ -1,5 +1,4 @@
 import { Hono } from 'hono'
-import { cors } from 'hono/cors'
 import { validator } from 'hono/validator'
 import { createLogger } from 'utils'
 
@@ -47,7 +46,7 @@ const GOOGLE_SIGN_IN_PATH = '/api/auth/google'
 
 // docs/spec.md section 21 — Downloaders never log in, so these routes (plus GOOGLE_SIGN_IN_PATH
 // and /api/client-id below) must stay reachable once the auth guard is enabled. Exported so
-// worker.ts/server.ts share one definition instead of maintaining their own copy.
+// backend-worker's worker.ts and the tests share one definition instead of maintaining their own copy.
 export const AUTH_EXCLUDE_PATHS: string[] = ['/api/client-id', '/api/transfers/join']
 
 // `GET` on each of these path shapes is also used by a *protected* method (`DELETE`/`POST`) on
@@ -102,13 +101,13 @@ const JOIN_ATTEMPT_WINDOW_MS = 60 * 1000
 // matters if an isolate is evicted mid-sweep.
 const CLEANUP_LEASE_MS = 30 * 1000
 
-/** Runtime-agnostic app: no Cloudflare Workers or Node-specific APIs here. See `worker.ts` / `server.ts` for entrypoints. */
+/** Runtime-agnostic app: no Cloudflare Workers-specific APIs here. `apps/backend-worker` wires in
+ * the concrete dependencies. Served on the same origin as the frontend (`/api`), so no CORS. */
 export const createApp = (deps: AppDependencies) => {
   const logger = createLogger({ format: 'json' })
 
   return (
     new Hono<{ Variables: Variables }>()
-      .use('*', cors())
       // Audit trail: start/end pair per request, joined by requestId (needed since concurrent
       // requests to the same method+path would otherwise be indistinguishable in the log stream).
       // Wraps the auth guard so a rejected (401) request is still logged, not just successful ones.
@@ -334,8 +333,7 @@ export const createApp = (deps: AppDependencies) => {
         if (result.status === 'expired') return c.json({ error: 'Gone' }, 410)
         return c.json({ files: result.session.files })
       })
-      // Downloader only — streams the file body directly (no R2 presigned URL yet, see
-      // dao/transfer.memory.ts).
+      // Downloader only — streams the file body directly (no R2 presigned URL yet).
       .get('/api/transfers/:id/files/:fileId/download', async (c) => {
         const transferId = c.req.param('id')
         const result = await deps.transfers.getFile(transferId, c.req.param('fileId'))
@@ -355,7 +353,7 @@ export const createApp = (deps: AppDependencies) => {
         // Japanese and plain `Content-Disposition` filenames must stay in the header's charset.
         const asciiFallback = result.meta.filename.replace(/[^\x20-\x7e]/g, '_')
         // `Uint8Array`'s storage type param defaults to the wider `ArrayBufferLike`; every byte
-        // source here (`file.arrayBuffer()`, the in-memory blob store) is a real `ArrayBuffer`.
+        // source here (`file.arrayBuffer()`, R2's `object.arrayBuffer()`) is a real `ArrayBuffer`.
         return c.body(result.bytes as Uint8Array<ArrayBuffer>, 200, {
           'Content-Type': result.meta.contentType || 'application/octet-stream',
           'Content-Length': String(result.meta.size),

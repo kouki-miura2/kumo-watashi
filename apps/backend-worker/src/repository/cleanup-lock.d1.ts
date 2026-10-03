@@ -1,4 +1,4 @@
-import type { CleanupLock } from './cleanup-lock.interface.ts'
+import type { CleanupLock } from 'backend/src/repository/cleanup-lock.interface.ts'
 
 /** Cloudflare D1 implementation (docs/spec.md section 5.1). D1 processes queries against a given
  * database one at a time, so this conditional `UPDATE` is inherently race-free: at most one

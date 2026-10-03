@@ -1,12 +1,11 @@
-import type { RateLimiter } from './rate-limiter.interface.ts'
+import type { RateLimiter } from 'backend/src/repository/rate-limiter.interface.ts'
 
 interface CounterRow {
   count: number
   window_started_at: number
 }
 
-/** Cloudflare D1 implementation (docs/spec.md section 10) — durable across isolates, unlike
- * `rate-limiter.memory.ts`. Shares the same fixed-window semantics: a row per key, reset once
+/** Cloudflare D1 implementation (docs/spec.md section 10) — durable across isolates. Fixed-window: a row per key, reset once
  * `windowMs` has elapsed since `window_started_at`. */
 export const createRateLimiter = (db: D1Database): RateLimiter => ({
   consume: async (key, limit, windowMs) => {

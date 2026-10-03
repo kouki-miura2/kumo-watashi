@@ -1,14 +1,15 @@
-import { AUTH_EXCLUDE_PATH_PATTERNS, AUTH_EXCLUDE_PATHS, createApp } from './app.ts'
+import { AUTH_EXCLUDE_PATH_PATTERNS, AUTH_EXCLUDE_PATHS, createApp } from 'backend/src/app.ts'
+import { createSessionTokenAuthGuard } from 'backend/src/repository/auth-guard.session-token.ts'
+import { createGoogleIdTokenVerifier } from 'backend/src/repository/google-id-token-verifier.jose.ts'
+import { createSessionTokenIssuer } from 'backend/src/repository/session-token.jose.ts'
+import { createTransferRepository } from 'backend/src/repository/transfer.repository.ts'
+import { createTurnstileVerifier } from 'backend/src/repository/turnstile-verifier.cloudflare.ts'
+import { createTransferService } from 'backend/src/service/transfer.service.ts'
+
 import { createTransferDao } from './dao/transfer.d1.ts'
-import { createSessionTokenAuthGuard } from './repository/auth-guard.session-token.ts'
 import { createCleanupLock } from './repository/cleanup-lock.d1.ts'
 import { createFileBlobStore } from './repository/file-blob-store.r2.ts'
-import { createGoogleIdTokenVerifier } from './repository/google-id-token-verifier.jose.ts'
 import { createRateLimiter } from './repository/rate-limiter.d1.ts'
-import { createSessionTokenIssuer } from './repository/session-token.jose.ts'
-import { createTransferRepository } from './repository/transfer.repository.ts'
-import { createTurnstileVerifier } from './repository/turnstile-verifier.cloudflare.ts'
-import { createTransferService } from './service/transfer.service.ts'
 
 // `SESSION_SECRET`/`TURNSTILE_SECRET_KEY` are real secrets, not declared in `wrangler.jsonc`'s
 // `vars` — set them via `.dev.vars` (untracked) locally, `wrangler secret put <NAME>` in
@@ -44,9 +45,8 @@ export default {
       googleIdTokens: createGoogleIdTokenVerifier(env.GOOGLE_CLIENT_ID),
       sessionTokens,
       // `env.DB`/`env.FILES` only exist inside the per-request `env`, not at module scope, so
-      // unlike the Node build (server.ts) this can't be built once and reused across requests —
-      // but D1/R2 are durable stores, not in-memory ones, so there's nothing to lose by
-      // reconstructing this thin wrapper on every request.
+      // this can't be built once and reused across requests — but D1/R2 are durable stores, so
+      // there's nothing to lose by reconstructing this thin wrapper on every request.
       transfers: createTransferService(
         createTransferRepository(createTransferDao(env.DB)),
         createFileBlobStore(env.FILES),

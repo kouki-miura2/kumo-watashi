@@ -19,9 +19,9 @@ generic credential shapes.
   (`git log -p origin/<branch>..HEAD`, or `git log -p --all` for a first push / new public repo —
   see docs/spec.md-style projects where nothing has been pushed before).
 - **Before a Cloudflare deploy**: scan the built output that's about to go live —
-  `apps/frontend/dist/**/*.{js,html}` for a frontend deploy, and `wrangler.jsonc`'s `vars`/
-  `d1_databases`/`r2_buckets`/`kv_namespaces` blocks for a backend deploy. Anything in a Vite
-  `VITE_*` env var or a `vars` entry is publicly downloadable/readable — never rely on "it's just
+  `apps/frontend/dist/**/*.{js,html}` (served by the Worker as static assets), and
+  `apps/backend-worker/wrangler.jsonc`'s `vars`/`d1_databases`/`r2_buckets`/`kv_namespaces`
+  blocks. Anything in a Vite `VITE_*` env var or a `vars` entry is publicly downloadable/readable — never rely on "it's just
   a build artifact" to keep it private.
 
 ### 2. Grep for provider-specific credential shapes
@@ -89,13 +89,13 @@ them be committed/deployed:
 These don't match a generic regex (a `database_id` is just a UUID; a bucket name is just a
 string) — and the actual values must never be written into this skill file itself (that would be
 exactly the leak this section exists to prevent). Instead, read them fresh each time from the
-local, gitignored `apps/backend/wrangler.jsonc` (`database_id`, `bucket_name`) and from
+local, gitignored `apps/backend-worker/wrangler.jsonc` (`database_id`, `bucket_name`) and from
 `npx wrangler whoami`'s printed Account ID, then grep `<scope>` for those literal values.
 
 **How this project resolved the practical tension**: `wrangler.jsonc`'s `d1_databases[].database_id`
 and `r2_buckets[].bucket_name` are exactly what `wrangler deploy` needs, so it can't be committed
-in its working form while treating those values as unpublishable. `apps/backend/wrangler.jsonc` is
-gitignored; `apps/backend/wrangler.jsonc.example` (placeholders, committed) is the template each
+in its working form while treating those values as unpublishable. `apps/backend-worker/wrangler.jsonc` is
+gitignored; `apps/backend-worker/wrangler.jsonc.example` (placeholders, committed) is the template each
 deployer copies and fills in locally — see README.md's "First-time deploy setup". If a future
 change reintroduces one of the sensitive values into a _committed_ file (not the gitignored
 `wrangler.jsonc` itself), that's exactly what this check should catch — don't assume the
@@ -120,15 +120,15 @@ change reintroduces one of the sensitive values into a _committed_ file (not the
 
   Don't treat this as a leak needing rotation — a Client ID isn't rotatable the way an API key
   is. The fix is removing the hardcoded default from source (require the env var, no fallback)
-  and replacing the `.example` value with a placeholder, as `server.ts`/`stores/auth.ts` and
+  and replacing the `.example` value with a placeholder, as `stores/auth.ts` and
   `wrangler.jsonc.example` in this project already do.
 
 ## Context for this project
 
-`docs/spec.md` and `apps/backend/AGENTS.md` establish most of this project's secret-handling
-pattern: Cloudflare secrets via `wrangler secret put` (never `.dev.vars` committed), Node secrets
-via an untracked `.env` (`apps/backend/.env.example` / `apps/frontend/.env.example` /
-`apps/backend/.dev.vars.example` document what each entrypoint needs). Neither `GOOGLE_CLIENT_ID`
+`docs/spec.md` and `apps/backend-worker/AGENTS.md` establish most of this project's secret-handling
+pattern: Cloudflare secrets via `wrangler secret put` (never `.dev.vars` committed), frontend build
+vars via an untracked `.env` (`apps/frontend/.env.example` / `apps/backend-worker/.dev.vars.example`
+document what each app needs). Neither `GOOGLE_CLIENT_ID`
 nor `VITE_GOOGLE_CLIENT_ID` has a real default anywhere in committed source — both throw/warn
 loudly if unset rather than silently working with the original author's identity. The Cloudflare
 resource identifiers are this project's own stricter addition on top of that baseline,

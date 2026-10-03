@@ -37,10 +37,10 @@ test('mints a client id via POST /api/client-id when none is cached', async () =
   vi.stubGlobal('fetch', fetchMock)
   const { getClientId } = await import('./client-id.ts')
 
-  const clientId = await getClientId('http://localhost:8787')
+  const clientId = await getClientId()
 
   expect(clientId).toBe('abc123')
-  expect(fetchMock).toHaveBeenCalledWith('http://localhost:8787/api/client-id', { method: 'POST' })
+  expect(fetchMock).toHaveBeenCalledWith('/api/client-id', { method: 'POST' })
 })
 
 test('reuses the in-memory cache without calling fetch again', async () => {
@@ -50,8 +50,8 @@ test('reuses the in-memory cache without calling fetch again', async () => {
   vi.stubGlobal('fetch', fetchMock)
   const { getClientId } = await import('./client-id.ts')
 
-  await getClientId('http://localhost:8787')
-  await getClientId('http://localhost:8787')
+  await getClientId()
+  await getClientId()
 
   expect(fetchMock).toHaveBeenCalledTimes(1)
 })
@@ -62,7 +62,7 @@ test('reuses a value already in localStorage instead of minting a new one', asyn
   vi.stubGlobal('fetch', fetchMock)
   const { getClientId } = await import('./client-id.ts')
 
-  const clientId = await getClientId('http://localhost:8787')
+  const clientId = await getClientId()
 
   expect(clientId).toBe('from-storage')
   expect(fetchMock).not.toHaveBeenCalled()
@@ -75,7 +75,7 @@ test('persists a freshly minted id to localStorage', async () => {
   )
   const { getClientId } = await import('./client-id.ts')
 
-  await getClientId('http://localhost:8787')
+  await getClientId()
 
   expect(localStorage.getItem('kumo-watashi:client-id')).toBe('new-id')
 })
@@ -87,5 +87,5 @@ test('throws when the server rejects the mint request', async () => {
   )
   const { getClientId } = await import('./client-id.ts')
 
-  await expect(getClientId('http://localhost:8787')).rejects.toThrow()
+  await expect(getClientId()).rejects.toThrow()
 })

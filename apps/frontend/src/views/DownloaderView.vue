@@ -184,9 +184,9 @@ const toggleSelectAll = () => {
 }
 
 const downloadUrl = (fileId: string): string =>
-  apiClient.api.transfers[':id'].files[':fileId'].download
-    .$url({ param: { id: transferId.value, fileId } })
-    .toString()
+  apiClient.api.transfers[':id'].files[':fileId'].download.$path({
+    param: { id: transferId.value, fileId },
+  })
 
 const downloadSingle = async (file: ReceivedFile) => {
   if (file.status !== 'pending') return

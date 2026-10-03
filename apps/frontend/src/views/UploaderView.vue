@@ -170,9 +170,7 @@ const startUpload = async () => {
     qrSecret.value = session.qrSecret
     startCountdown(session.expiresAt)
 
-    const uploadUrl = apiClient.api.transfers[':id'].files
-      .$url({ param: { id: session.id } })
-      .toString()
+    const uploadUrl = apiClient.api.transfers[':id'].files.$path({ param: { id: session.id } })
     for (const picked of files.value) {
       if (uploadAbortController.signal.aborted) return
       picked.status = 'uploading'

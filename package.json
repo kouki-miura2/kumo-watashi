@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
-    "dev-b": "vp run backend#dev",
+    "dev-b": "vp run backend-worker#dev",
     "dev-f": "vp run frontend#dev",
     "prepare": "vp config"
   },

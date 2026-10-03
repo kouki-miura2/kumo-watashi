@@ -8,8 +8,7 @@
     "check": "vp check",
     "test": "vp test",
     "build": "vue-tsc && vp build",
-    "preview": "vp preview",
-    "deploy": "wrangler deploy"
+    "preview": "vp preview"
   },
   "dependencies": {
     "@mdi/font": "catalog:",
@@ -31,7 +30,6 @@
     "vite": "catalog:",
     "vite-plugin-vuetify": "^2.1.3",
     "vite-plus": "catalog:",
-    "vue-tsc": "^3.3.11",
-    "wrangler": "catalog:"
+    "vue-tsc": "^3.3.11"
   }
 }
